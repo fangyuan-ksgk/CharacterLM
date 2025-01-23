@@ -2,7 +2,9 @@
 
 # Set variables
 DOWNLOAD_URL="http://mattmahoney.net/dc/enwik9.zip"
-OUTPUT_DIR="$(dirname "$0")"
+# Get the absolute path of the script directory, regardless of where it's called from
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OUTPUT_DIR="$SCRIPT_DIR"
 ZIP_FILE="$OUTPUT_DIR/enwik9.zip"
 EXTRACTED_FILE="$OUTPUT_DIR/enwik9"
 

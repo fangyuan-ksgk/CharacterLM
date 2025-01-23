@@ -9,10 +9,11 @@ import pickle
 import requests
 import numpy as np
 
-# Remove Shakespeare download code and replace with enwiki9 processing
-input_file_path = os.path.join(os.path.dirname(__file__), 'enwik9')
+# Adjust paths for running from parent directory
+data_dir = os.path.join('data', 'enwiki')
+input_file_path = os.path.join(data_dir, 'enwik9')
 if not os.path.exists(input_file_path):
-    raise FileNotFoundError("Please run the download commands first:\nmkdir -p data\nwget -P data http://mattmahoney.net/dc/enwik9.zip\nunzip data/enwik9.zip -d data")
+    os.system('cd data/enwiki && bash download_data.sh')
 
 # Read the enwiki9 data
 with open(input_file_path, 'r', encoding='utf-8') as f:
@@ -51,9 +52,9 @@ print(f"test has {len(test_ids):,} tokens")
 train_ids = np.array(train_ids, dtype=np.uint16)
 val_ids = np.array(val_ids, dtype=np.uint16)
 test_ids = np.array(test_ids, dtype=np.uint16)
-train_ids.tofile(os.path.join(os.path.dirname(__file__), 'train.bin'))
-val_ids.tofile(os.path.join(os.path.dirname(__file__), 'val.bin'))
-test_ids.tofile(os.path.join(os.path.dirname(__file__), 'test.bin'))
+train_ids.tofile(os.path.join(data_dir, 'train.bin'))
+val_ids.tofile(os.path.join(data_dir, 'val.bin'))
+test_ids.tofile(os.path.join(data_dir, 'test.bin'))
 
 # save the meta information as well, to help us encode/decode later
 meta = {
@@ -61,5 +62,5 @@ meta = {
     'itos': itos,
     'stoi': stoi,
 }
-with open(os.path.join(os.path.dirname(__file__), 'meta.pkl'), 'wb') as f:
+with open(os.path.join(data_dir, 'meta.pkl'), 'wb') as f:
     pickle.dump(meta, f)
