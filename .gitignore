@@ -1,3 +1,4 @@
 data/enwiki/*
 !data/enwiki/*.sh
 !data/enwiki/*.py
+!data/enwiki/readme.md
