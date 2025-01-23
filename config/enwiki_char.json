@@ -35,7 +35,7 @@
     "lr_schedule": {
         "decay_lr": true,
         "warmup_iters": 100,
-        "lr_decay_iters": 5000,
+        "lr_decay_iters": 500000,
         "min_lr": 1e-4
     }
 }
