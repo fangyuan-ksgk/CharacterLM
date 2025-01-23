@@ -1,0 +1,41 @@
+{
+    "io": {
+        "out_dir": "out-enwiki-char",
+        "eval_interval": 250,
+        "eval_iters": 200,
+        "always_save_checkpoint": false,
+        "init_from": "scratch"
+    },
+    "wandb": {
+        "enabled": true,
+        "project": "enwiki-char",
+        "run_name": "char-gpt"
+    },
+    "data": {
+        "dataset": "enwiki",
+        "gradient_accumulation_steps": 1,
+        "batch_size": 16,
+        "block_size": 512
+    },
+    "model": {
+        "n_layer": 64,
+        "n_head": 8,
+        "n_embd": 512,
+        "dropout": 0.55,
+        "bias": false
+    },
+    "optimizer": {
+        "learning_rate": 3e-3,
+        "max_iters": 5000,
+        "weight_decay": 0.1,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "grad_clip": 1.0
+    },
+    "lr_schedule": {
+        "decay_lr": true,
+        "warmup_iters": 100,
+        "lr_decay_iters": 5000,
+        "min_lr": 1e-4
+    }
+}
