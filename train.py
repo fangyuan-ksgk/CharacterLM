@@ -246,6 +246,10 @@ if wandb_log and master_process:
     import wandb
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
+# add tqdm progress bar
+from tqdm import tqdm
+pbar = tqdm(total=max_iters, initial=iter_num, dynamic_ncols=True)
+
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
 t0 = time.time()
@@ -327,6 +331,8 @@ while True:
         print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
     iter_num += 1
     local_iter_num += 1
+    if master_process:
+        pbar.update(1)  # update progress bar
 
     # termination conditions
     if iter_num > max_iters:
@@ -334,3 +340,4 @@ while True:
 
 if ddp:
     destroy_process_group()
+pbar.close()  # close the progress bar
