@@ -1,0 +1,3 @@
+data/enwiki/*
+!data/enwiki/*.sh
+!data/enwiki/*.py
