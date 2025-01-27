@@ -21,7 +21,8 @@ if not os.path.exists(input_file_path):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(script_dir)
     os.system('bash download_data.sh')
-
+    os.system('bash filter_data.sh')
+    
 # Read the enwiki9 data
 with open(input_file_path, 'r', encoding='utf-8') as f:
     data = f.read()
