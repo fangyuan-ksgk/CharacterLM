@@ -5,5 +5,5 @@ python data/enwiki/prepare_data.py
 
 wandb login
 accelerate config
-# python train.py config/train_enwiki_char.py
+# python train_baseline.py config/train_enwiki_char.py
 # accelerate launch train.py --config config/enwiki_char.json
