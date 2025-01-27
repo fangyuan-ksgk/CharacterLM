@@ -15,14 +15,14 @@ wandb_run_name = 'char-gpt'
 
 dataset = 'enwiki'
 gradient_accumulation_steps = 1
-batch_size = 16
-block_size = 512 # context of up to 512 previous characters
+batch_size = 64
+block_size = 256 # context of up to 512 previous characters
 
 # baby GPT model :)
-n_layer = 64
-n_head = 8
-n_embd = 512
-dropout = 0.55
+n_layer = 6
+n_head = 6
+n_embd = 384
+dropout = 0.2
 
 learning_rate = 3e-3 # with baby networks can afford to go a bit higher
 max_iters = 5000
