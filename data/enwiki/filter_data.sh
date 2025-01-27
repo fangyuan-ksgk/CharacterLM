@@ -40,14 +40,16 @@ while (<>) {
     s/\[\[category:([^|\]]*)[^]]*\]\]/[[$1]]/ig;  # show categories without markup
     s/\[\[[a-z\-]*:[^\]]*\]\]//g;  # remove links to other languages
     s/\[\[[^\|\]]*\|/[[/g;  # remove wiki url, preserve visible text
-    s/{{[^}]*}}//g;         # remove {{icons}} and {tables}
     s/{[^}]*}//g;
     s/\[//g;                # remove [ and ]
     s/\]//g;
     s/&[^;]*;/ /g;          # remove URL encoded chars
 
-    # Keep only specified characters
-    tr/!$&',-.:;?A-Za-z//cd;    # Delete all characters except the ones specified
+    tr/!$&',.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\n/ /c;
+    s/ +/ /g;               # collapse multiple spaces into one
+    s/^ +//;                # remove leading spaces
+    s/ +$//;                # remove trailing spaces
+    
     print $_;
   }
 }
