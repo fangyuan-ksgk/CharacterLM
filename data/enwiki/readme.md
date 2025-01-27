@@ -1,7 +1,9 @@
 Enwiki dataset
 -----------------
 
-vocab size: 10,800
+all the unique characters:  abcdefghijklmnopqrstuvwxyz
+
+vocab size: 27
 
 train has 90,000,000 tokens
 

@@ -11,9 +11,16 @@ import numpy as np
 
 # Adjust paths for running from parent directory
 data_dir = os.path.join('data', 'enwiki')
-input_file_path = os.path.join(data_dir, 'enwik9')
+input_file_path = os.path.join(data_dir, 'filtered_enwiki9.txt')
+print("Input file path: ", input_file_path)
+# Create the data directory if it doesn't exist
+os.makedirs(data_dir, exist_ok=True)
+
 if not os.path.exists(input_file_path):
-    os.system('cd data/enwiki && bash download_data.sh')
+    # Change to the script's directory first, then execute download_data.sh
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir)
+    os.system('bash download_data.sh')
 
 # Read the enwiki9 data
 with open(input_file_path, 'r', encoding='utf-8') as f:
