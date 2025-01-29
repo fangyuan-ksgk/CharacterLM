@@ -61,8 +61,9 @@ def display_colored_text(text, char_colors, char_per_row=60):
                             fontfamily='monospace',
                             va='top',
                             fontsize=24,
-                            backgroundcolor=color)
-                    x_pos += char_width * 1.2 # slightly wider due to background color box
+                            backgroundcolor=color,
+                            bbox=dict(pad=0.0, facecolor=color, edgecolor='none'))
+                    x_pos += char_width * 1.0 # slightly wider due to background color box
                 else:
                     current_text += char
             

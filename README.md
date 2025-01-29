@@ -11,3 +11,4 @@ python data/enwiki/prepare_data.py
 python train.py config/train_enwiki_char.py
 ```
 
+![Perplexity visualization](perplexity_char.png)
