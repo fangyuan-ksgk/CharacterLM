@@ -1,4 +1,5 @@
-api install zip
+apt update
+apt install zip
 pip install torch numpy transformers datasets tiktoken wandb tqdm
 pip install accelerate
 python data/enwiki/prepare_data.py
