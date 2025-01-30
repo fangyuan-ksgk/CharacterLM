@@ -15,5 +15,5 @@ python train.py config/train_enwiki_char.py
 (a). Spike tokens : sudden jump in perplexity above certain threshold 
 ![Spike tokens](spiking_tokens.png)
 
-(b). Natural tokens : perplexity below certain threshold 
-![Natural tokens](natural_tokens.png)
+(b). Natural token groups : consecutive tokens with decreasing perplexity below certain threshold
+![Natural token groups](natural_token_groups.png)
