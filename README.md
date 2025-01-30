@@ -13,7 +13,7 @@ python train.py config/train_enwiki_char.py
 
 3. Visualize token perplexity pattern 
 (a). Spike tokens : sudden jump in perplexity above certain threshold 
-![Spike tokens](spiking_tokens.png)
+![Spike tokens](spike_tokens.png)
 
 (b). Natural token groups : consecutive tokens with decreasing perplexity below certain threshold
-![Natural token groups](natural_token_groups.png)
+![Natural token groups](group_token.png)

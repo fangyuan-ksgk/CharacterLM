@@ -1,5 +1,7 @@
 import numpy as np 
 import torch 
+import math 
+
 def shift_token_loss(token_loss, return_tensor=True): 
     token_perplexity = token_loss.detach().numpy()
     token_perplexity = np.pad(token_perplexity, (1, 0), mode='constant', constant_values=0.)
@@ -45,3 +47,20 @@ def get_naive_char_color(char_perplexity):
         elif char_perplexity[i] > p60:
             char_colors[i] = 'pink'
     return char_colors
+
+
+def calculate_bits_per_char(token_loss, target_ids, decode_fn):
+    # Convert from nats to bits
+    bits_per_token = token_loss * math.log2(math.e)
+    
+    # Calculate character length for each token
+    token_lens = torch.tensor([len(decode_fn([token])) for token in target_ids[0].tolist()])
+    
+    # Ensure no division by zero
+    total_chars = token_lens.sum()
+    if total_chars == 0:
+        return torch.tensor(0.0)
+        
+    # Calculate weighted average of bits per character
+    bits_per_char = (bits_per_token.detach() * token_lens).sum() / total_chars
+    return bits_per_char

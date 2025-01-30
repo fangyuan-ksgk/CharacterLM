@@ -1,7 +1,7 @@
 import torch 
 
 # Spike token: Sudden Jump in perplexity above threshold
-def detect_spike_token(token_loss, quantile_threshold=0.80): 
+def _detect_spike_token(token_loss, quantile_threshold=0.80): 
     """ 
     Spike token cross perplexity threshold, and shows a sudden increase in perplexity
     """
@@ -13,14 +13,21 @@ def detect_spike_token(token_loss, quantile_threshold=0.80):
             spike_tokens.append(i)
     return spike_tokens
 
+def detect_spike_token(token_ids, token_loss, quantile_threshold=0.80): 
+    spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
+    tokens_to_spike = []
+    for index in spike_token_indices: 
+        tokens_to_spike.append(token_ids[0, index].item())
+    return tokens_to_spike
+
 def get_spike_token_mask(token_loss, quantile_threshold=0.80): 
-    spike_token_indices = detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
+    spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
     spike_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
     spike_token_mask[spike_token_indices] = True
     return spike_token_mask
 
 # Natural token group: consecutive decrease in perplexity below threshold
-def detect_group_token(token_loss, quantile_threshold=0.7): 
+def _detect_group_token(token_loss, quantile_threshold=0.7): 
     loss_threshold = torch.quantile(token_loss, quantile_threshold)
     natural_group = []
     curr_group = []
@@ -39,8 +46,15 @@ def detect_group_token(token_loss, quantile_threshold=0.7):
         natural_group.append(curr_group)    
     return natural_group
 
+def detect_group_token(token_ids, token_loss, quantile_threshold=0.7): 
+    group_token_indices = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
+    tokens_to_group = []
+    for group in group_token_indices: 
+        tokens_to_group.append(token_ids[0, group].tolist())
+    return tokens_to_group
+
 def get_group_token_mask(token_loss, quantile_threshold=0.7): 
-    group_token = detect_group_token(token_loss, quantile_threshold=quantile_threshold)
+    group_token = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
     group_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
     for group in group_token: 
         group_token_mask[group] = True
