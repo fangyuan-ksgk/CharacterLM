@@ -24,17 +24,19 @@ def get_full_text(text, char_per_row=60):
     full_text += "\n" + row_text
     return full_text, num_rows 
 
-def display_colored_text(text, char_colors, char_per_row=60):
+def display_colored_text(text, char_colors, title=None, char_per_row=60):
     """
     Display text with individual character coloring
     """
     plt.figure(figsize=(15, 5))
+    if title: 
+        plt.title(title, fontsize=30, fontweight='bold')
     
     # Split text into lines
     full_text, num_rows = get_full_text(text, char_per_row)
     lines = full_text.split('\n')
     
-    y_pos = 0.95
+    y_pos = 0.90
     line_height = 0.15
     char_width = 0.015
     for line_num, line in enumerate(lines):

@@ -11,4 +11,9 @@ python data/enwiki/prepare_data.py
 python train.py config/train_enwiki_char.py
 ```
 
-![Perplexity visualization](perplexity_char.png)
+3. Visualize token perplexity pattern 
+(a). Spike tokens : sudden jump in perplexity above certain threshold 
+![Spike tokens](spiking_tokens.png)
+
+(b). Natural tokens : perplexity below certain threshold 
+![Natural tokens](natural_tokens.png)
