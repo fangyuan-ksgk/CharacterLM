@@ -22,11 +22,13 @@ def map_token_to_char_perplexity(text, token_ids, token_perplexity, decode_fn, t
         
         # Assign the token's perplexity to all characters in this token
         char_perplexity[curr_char_idx:curr_char_idx + token_len] = token_perplexity[token_idx]
-        curr_char_idx += token_len
+        
         if token_mask is not None:
             token_color = mask_color if token_mask[token_idx] else 'white'
             char_colors[curr_char_idx:curr_char_idx + token_len] = [token_color] * token_len
     
+        curr_char_idx += token_len
+        
     if token_mask is not None:
         return char_perplexity, char_colors
     else:

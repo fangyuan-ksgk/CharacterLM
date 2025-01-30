@@ -20,14 +20,15 @@ def get_spike_token_mask(token_loss, quantile_threshold=0.80):
     return spike_token_mask
 
 # Natural token group: consecutive decrease in perplexity below threshold
-def detect_natural_group(token_loss, quantile_threshold=0.7): 
+def detect_group_token(token_loss, quantile_threshold=0.7): 
+    loss_threshold = torch.quantile(token_loss, quantile_threshold)
     natural_group = []
     curr_group = []
 
     for i in range(len(token_loss)):
         if not curr_group:  # Start new group
             curr_group.append(i)
-        elif token_loss[i] <= token_loss[i-1]:  # Continue group if decreasing
+        elif token_loss[i] <= token_loss[i-1] and token_loss[i] < loss_threshold:  # Continue group if decreasing
             curr_group.append(i)
         else:  # End group if increasing
             if len(curr_group) > 1:  # Only keep groups of 2 or more
@@ -38,9 +39,9 @@ def detect_natural_group(token_loss, quantile_threshold=0.7):
         natural_group.append(curr_group)    
     return natural_group
 
-def get_natural_token_mask(token_loss, quantile_threshold=0.7): 
-    natural_group = detect_natural_group(token_loss, quantile_threshold=quantile_threshold)
-    natural_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
-    for group in natural_group: 
-        natural_token_mask[group] = True
-    return natural_token_mask
+def get_group_token_mask(token_loss, quantile_threshold=0.7): 
+    group_token = detect_group_token(token_loss, quantile_threshold=quantile_threshold)
+    group_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
+    for group in group_token: 
+        group_token_mask[group] = True
+    return group_token_mask
