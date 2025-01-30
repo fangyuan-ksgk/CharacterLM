@@ -17,3 +17,5 @@ python train.py config/train_enwiki_char.py
 
 (b). Natural token groups : consecutive tokens with decreasing perplexity below certain threshold
 ![Natural token groups](group_token.png)
+
+4. Using 'Group tokens' and 'Spike tokens' to progressively update a 'E-Tokenizer', no more co-occurance based merging, we directly let model decide what it wants to merge. 
