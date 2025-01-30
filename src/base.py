@@ -164,8 +164,7 @@ class Tokenizer:
         self.special_tokens = special_tokens
         self.vocab = self._build_vocab()
         
-        
-        
+             
 class BasicTokenizer(Tokenizer):
 
     def __init__(self):
@@ -174,8 +173,12 @@ class BasicTokenizer(Tokenizer):
     def train(self, text, vocab_size, verbose=False):
         """ 
         I would need to change this :: it already assume 'co-occurance based token merging'
-        
+        KeyPoint for 'merges' dictionary: 
+        - pair of token ids : new token id 
+        - order of pair in merges: 'better/frequent' merge first
+        - during encoding we also favor earlier merges
         """
+        
         assert vocab_size >= 256
         num_merges = vocab_size - 256
 
@@ -219,7 +222,7 @@ class BasicTokenizer(Tokenizer):
         while len(ids) >= 2:
             # find the pair with the lowest merge index
             stats = get_stats(ids)
-            pair = min(stats, key=lambda p: self.merges.get(p, float("inf")))
+            pair = min(stats, key=lambda p: self.merges.get(p, float("inf"))) # favor later merges
             # subtle: if there are no more merges available, the key will
             # result in an inf for every single pair, and the min will be
             # just the first pair in the list, arbitrarily
@@ -230,3 +233,4 @@ class BasicTokenizer(Tokenizer):
             idx = self.merges[pair]
             ids = merge(ids, pair, idx)
         return ids
+    
