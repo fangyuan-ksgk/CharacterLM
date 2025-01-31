@@ -2,6 +2,7 @@ import numpy as np
 import torch 
 import math 
 
+
 def shift_token_loss(token_loss, return_tensor=True): 
     token_perplexity = token_loss.detach().numpy()
     token_perplexity = np.pad(token_perplexity, (1, 0), mode='constant', constant_values=0.)
@@ -64,3 +65,5 @@ def calculate_bits_per_char(token_loss, target_ids, decode_fn):
     # Calculate weighted average of bits per character
     bits_per_char = (bits_per_token.detach() * token_lens).sum() / total_chars
     return bits_per_char
+
+

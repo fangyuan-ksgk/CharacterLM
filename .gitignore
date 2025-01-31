@@ -14,3 +14,6 @@ __pycache__/
 input.txt
 env/
 venv/
+checkpoint/
+.checkpoint/
+.checkpoint
