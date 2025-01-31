@@ -72,9 +72,9 @@ class Tokenizer:
         self.pattern = "" # str
         self.special_tokens = {} # str -> int, e.g. {'<|endoftext|>': 100257}
         if char_vocab: 
-            self.vocab = char_vocab # int -> bytes
+            self.vocab = {k: v for k, v in char_vocab.items()}
         else: 
-            self.vocab = self._build_vocab() # int -> bytes
+            self.vocab = self._build_vocab()
         
     def train(self, text, vocab_size, verbose=False):
         # Tokenizer can train a vocabulary of size vocab_size from text

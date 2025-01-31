@@ -8,6 +8,7 @@ class ETokenizer(Tokenizer):
     def __init__(self, char_vocab=False):
         super().__init__(char_vocab)
         self.use_char = bool(char_vocab)
+        self.byte2idx = {b.encode("utf-8")[0]:i for i, b in self.vocab.items()}
         
     def train(self, text, vocab_size, verbose=False):
         """ 
@@ -34,13 +35,8 @@ class ETokenizer(Tokenizer):
         - The vocab is no longer constructued via co-occurance pattern but rather joint perplexity level 
         - The encoding should also assume a different mechanism than checking 'co-occurance' statistics
         """
-        # given a string text, return the token ids
-        if self.use_char:
-            text_chars = [ord(c) for c in text]
-            ids = list(text_chars)
-        else:
-            text_bytes = text.encode("utf-8")
-            ids = list(text_bytes)
+        text_bytes = text.encode("utf-8")
+        ids = [self.byte2idx[b] for b in text_bytes]
             
         while len(ids) >= 2:
             # find the pair with the lowest merge index
