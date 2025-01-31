@@ -8,16 +8,20 @@ import os
 import pickle
 import requests
 import numpy as np
+import argparse
 
-clean_txt = False
+# Add argument parser
+parser = argparse.ArgumentParser(description='Prepare enwiki dataset for character-level language modeling')
+parser.add_argument('--clean', action='store_true', help='Use cleaned version of the dataset')
+args = parser.parse_args()
 
-# Adjust paths for running from parent directory
+# Replace clean_txt variable with args.clean
 data_dir = os.path.join('data', 'enwiki')
 input_file_path = os.path.join(data_dir, 'enwik8')
 if not os.path.exists(input_file_path):
     os.system("bash data/enwiki/download_data.sh")
 
-if clean_txt:
+if args.clean:
     clean_file_path = os.path.join(data_dir, 'enwik8_clean.txt')
     if not os.path.exists(clean_file_path):
         os.system("python data/enwiki/filter_data.py")
@@ -53,9 +57,14 @@ def decode(l):
 
 # create the train, validation and test splits
 n = len(data)
-train_bytes = data_bytes[:90_000_000]
-val_bytes = data_bytes[90_000_000:95_000_000]
-test_bytes = data_bytes[95_000_000:100_000_000]
+if args.clean:
+    train_bytes = data_bytes[:50_000_000]
+    val_bytes = data_bytes[50_000_000:52_000_000]
+    test_bytes = data_bytes[52_000_000:]
+else:
+    train_bytes = data_bytes[:90_000_000]
+    val_bytes = data_bytes[90_000_000:95_000_000]
+    test_bytes = data_bytes[95_000_000:100_000_000]
 train_data = bytes(train_bytes).decode('utf-8')
 val_data = bytes(val_bytes).decode('utf-8')
 test_data = bytes(test_bytes).decode('utf-8')
@@ -65,6 +74,7 @@ train_ids = encode(train_data)
 val_ids = encode(val_data)
 test_ids = encode(test_data)
 print(f"Total tokens: {n}")
+print(f"Total bytes: {len(data_bytes)}")
 print(f"train has {len(train_ids):,} tokens")
 print(f"val has {len(val_ids):,} tokens")
 print(f"test has {len(test_ids):,} tokens")
