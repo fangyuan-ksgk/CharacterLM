@@ -85,7 +85,7 @@ class Tokenizer:
         # Tokenizer can decode a list of integers into a string
         raise NotImplementedError
 
-    def _build_vocab(self):
+    def _build_vocab(self): # basic byte-level vocabulary (size 256)
         # vocab is simply and deterministically derived from merges
         vocab = {idx: bytes([idx]) for idx in range(256)}
         for (p0, p1), idx in self.merges.items(): # merge - {(token1_idx, token_idx2): new_token_idx)} 
@@ -93,6 +93,10 @@ class Tokenizer:
         for special, idx in self.special_tokens.items(): # special tokens - {special_token: special_token_idx}
             vocab[idx] = special.encode("utf-8")
         return vocab
+    
+    def _build_base_char_vocab(self, vocab_list):
+        raise NotImplementedError
+    
 
     def save(self, file_prefix):
         """
