@@ -2,6 +2,7 @@ apt update
 apt install zip
 pip install torch numpy transformers datasets tiktoken wandb tqdm
 pip install accelerate
+pip install SoMaJo
 python data/enwiki/prepare_data.py
 
 wandb login

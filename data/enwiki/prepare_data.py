@@ -11,7 +11,7 @@ import numpy as np
 
 # Adjust paths for running from parent directory
 data_dir = os.path.join('data', 'enwiki')
-input_file_path = os.path.join(data_dir, 'filtered_enwiki9.txt')
+input_file_path = os.path.join(data_dir, 'enwik9_clean.txt')
 print("Input file path: ", input_file_path)
 # Create the data directory if it doesn't exist
 os.makedirs(data_dir, exist_ok=True)
