@@ -191,6 +191,26 @@ class GPT(nn.Module):
             loss = None
 
         return logits, loss
+    
+    def get_representation(self, idx): 
+        device = idx.device
+        b, t = idx.size()
+        assert t <= self.config.block_size, f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
+        pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
+        
+        representation = []
+        # forward GPT model 
+        tok_emb = self.transformer.wte(idx)
+        pos_emb = self.transformer.wpe(pos)
+        x = self.transformer.drop(tok_emb + pos_emb)
+        representation.append(x.detach().cpu())
+        for block in self.transformer.h:
+            x = block(x)
+            representation.append(x.detach().cpu())
+        x = self.transformer.ln_f(x)
+        representation.append(x.detach().cpu())
+        return representation
+        
 
     def crop_block_size(self, block_size):
         # model surgery to decrease the block size if necessary

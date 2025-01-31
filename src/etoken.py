@@ -1,4 +1,4 @@
-from .base import * 
+from .base_tok import * 
 
   
 class ETokenizer(Tokenizer): 
@@ -77,13 +77,8 @@ class ETokenizer(Tokenizer):
 
                 prefix_token = new_token
                 
-                
-    def remove_tokens(self, tokens_to_split):
-        """
-        Remove tokens from vocabulary if their byte length is > 1
-        Maintains consecutive token indices by remapping remaining tokens
-        """
-        # First, remove the tokens and associated merges
+    def identify_splittable_tokens(self, tokens_to_split): 
+        
         tokens_removed = []
         for token_id in tokens_to_split:
             if token_id not in self.vocab or len(self.vocab[token_id]) <= 1:
@@ -96,10 +91,9 @@ class ETokenizer(Tokenizer):
             # Remove any merges that created this token
             self.merges = {pair: idx for pair, idx in self.merges.items() 
                           if idx != token_id}
-        
-        if not tokens_removed:
-            return
-
+        return tokens_removed
+    
+    def remove_tokens(self, tokens_to_remove): 
         # Create a new vocabulary with consecutive indices
         old_to_new = {}
         new_vocab = {}
@@ -114,10 +108,23 @@ class ETokenizer(Tokenizer):
         # Update merges with new token indices
         new_merges = {}
         for (t1, t2), idx in self.merges.items():
-            if idx not in tokens_removed:
+            if idx not in tokens_to_remove:
                 new_merges[(old_to_new.get(t1, t1), old_to_new.get(t2, t2))] = old_to_new[idx]
         
         self.vocab = new_vocab
         self.merges = new_merges
         
-        print(" :: Removed tokens: ", tokens_removed)
+        print(" :: Removed tokens: ", tokens_to_remove)
+        
+    
+    def split_tokens(self, tokens_to_split):
+        """
+        Remove tokens from vocabulary if their byte length is > 1
+        Maintains consecutive token indices by remapping remaining tokens
+        """
+        # Decide tokens to remove : can't be base vocabulary tokens
+        tokens_to_remove = self.identify_splittable_tokens(tokens_to_split)
+        if not tokens_to_remove:
+            return []
+        # Remove tokens from vocabulary
+        self.remove_tokens(tokens_to_remove)

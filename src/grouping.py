@@ -46,12 +46,15 @@ def _detect_group_token(token_loss, quantile_threshold=0.7):
         natural_group.append(curr_group)    
     return natural_group
 
-def detect_group_token(token_ids, token_loss, quantile_threshold=0.7): 
+def detect_group_token(token_ids, token_loss, quantile_threshold=0.7, return_indices=False): 
     group_token_indices = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
     tokens_to_group = []
     for group in group_token_indices: 
         tokens_to_group.append(token_ids[0, group].tolist())
-    return tokens_to_group
+    if return_indices: 
+        return tokens_to_group, group_token_indices
+    else: 
+        return tokens_to_group
 
 def get_group_token_mask(token_loss, quantile_threshold=0.7): 
     group_token = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
