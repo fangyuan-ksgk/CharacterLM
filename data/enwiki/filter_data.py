@@ -40,8 +40,8 @@ def clean_wiki_text(content):
 
 if __name__ == "__main__":
     
-    INPUT_PATH = "data/enwiki/enwik9"
-    OUTPUT_PATH = "data/enwiki/enwik9_clean.txt"
+    INPUT_PATH = "data/enwiki/enwik8"
+    OUTPUT_PATH = "data/enwiki/enwik8_clean.txt"
     f1 = open(INPUT_PATH, 'r', encoding='utf-8').read()
     matches = re.findall('<text.*?>(.*?)</text>', f1, flags=re.S)
 

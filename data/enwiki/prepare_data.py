@@ -9,25 +9,41 @@ import pickle
 import requests
 import numpy as np
 
+clean_txt = False
+
 # Adjust paths for running from parent directory
 data_dir = os.path.join('data', 'enwiki')
-input_file_path = os.path.join(data_dir, 'enwik9_clean.txt')
-print("Input file path: ", input_file_path)
+input_file_path = os.path.join(data_dir, 'enwik8')
+if not os.path.exists(input_file_path):
+    os.system("bash data/enwiki/download_data.sh")
+
+if clean_txt:
+    clean_file_path = os.path.join(data_dir, 'enwik8_clean.txt')
+    if not os.path.exists(clean_file_path):
+        os.system("python data/enwiki/filter_data.py")
+else: 
+    clean_file_path = input_file_path
+    
+print("Input file path: ", clean_file_path)
 # Create the data directory if it doesn't exist
 os.makedirs(data_dir, exist_ok=True)
     
 # Read the enwiki9 data
-with open(input_file_path, 'r', encoding='utf-8') as f:
-    data = f.read()
-print(f"length of dataset in characters: {len(data):,}")
+with open(clean_file_path, 'r', encoding='utf-8') as f:
+    data = f.read()   
 
 # get all the unique characters that occur in this text
+data_bytes = data.encode('utf-8')
+sorted_bytes = sorted(list(set(data_bytes)))
+byte_size = len(sorted_bytes)
+
 chars = sorted(list(set(data)))
 vocab_size = len(chars)
-print("all the unique characters:", ''.join(chars))
-print(f"vocab size: {vocab_size:,}")
 
-# create a mapping from characters to integers
+print("all the unique characters:", ''.join(chars))
+print(f"char vocab size: {vocab_size:,}")
+print(f"byte vocab size: {byte_size:,}")
+
 stoi = { ch:i for i,ch in enumerate(chars) }
 itos = { i:ch for i,ch in enumerate(chars) }
 def encode(s):
@@ -37,14 +53,18 @@ def decode(l):
 
 # create the train, validation and test splits
 n = len(data)
-train_data = data[:90_000_000]  # first 90M characters
-val_data = data[90_000_000:95_000_000]  # next 5M characters
-test_data = data[95_000_000:100_000_000]  # final 5M characters
+train_bytes = data_bytes[:90_000_000]
+val_bytes = data_bytes[90_000_000:95_000_000]
+test_bytes = data_bytes[95_000_000:100_000_000]
+train_data = bytes(train_bytes).decode('utf-8')
+val_data = bytes(val_bytes).decode('utf-8')
+test_data = bytes(test_bytes).decode('utf-8')
 
 # encode all three splits to integers
 train_ids = encode(train_data)
 val_ids = encode(val_data)
 test_ids = encode(test_data)
+print(f"Total tokens: {n}")
 print(f"train has {len(train_ids):,} tokens")
 print(f"val has {len(val_ids):,} tokens")
 print(f"test has {len(test_ids):,} tokens")

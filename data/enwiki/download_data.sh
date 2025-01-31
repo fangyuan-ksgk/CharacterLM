@@ -1,18 +1,19 @@
 #!/bin/bash
 
 # Set variables
-DOWNLOAD_URL="http://mattmahoney.net/dc/enwik9.zip"
+# DOWNLOAD_URL="http://mattmahoney.net/dc/enwik9.zip"
+DOWNLOAD_URL="https://mattmahoney.net/dc/enwik8.zip"
 # Get the absolute path of the script directory, regardless of where it's called from
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="$SCRIPT_DIR"
-ZIP_FILE="$OUTPUT_DIR/enwik9.zip"
-EXTRACTED_FILE="$OUTPUT_DIR/enwik9"
+ZIP_FILE="$OUTPUT_DIR/enwik8.zip"
+EXTRACTED_FILE="$OUTPUT_DIR/enwik8"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
 
 # Download the file
-echo "Downloading enwik9.zip..."
+echo "Downloading enwik8.zip..."
 wget -c "$DOWNLOAD_URL" -O "$ZIP_FILE"
 
 # Check if download was successful
@@ -22,7 +23,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Extract the file
-echo "Extracting enwik9.zip..."
+echo "Extracting enwik8.zip..."
 unzip -o "$ZIP_FILE" -d "$OUTPUT_DIR"
 
 # Check if extraction was successful
