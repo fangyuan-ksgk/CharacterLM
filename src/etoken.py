@@ -10,6 +10,10 @@ class ETokenizer(Tokenizer):
         self.use_char = bool(char_vocab)
         self.byte2idx = {b.encode("utf-8")[0]:i for i, b in self.vocab.items()}
         
+    @property 
+    def inverse_vocab(self): 
+        return {v:k for k, v in self.vocab.items()}
+    
     def train(self, text, vocab_size, verbose=False):
         """ 
         I would need to change this :: it already assume 'co-occurance based token merging'
@@ -50,12 +54,16 @@ class ETokenizer(Tokenizer):
         return ids
 
 
-    def add_tokens(self, tokens_to_group):
+    def add_tokens(self, tokens_to_group, return_eom=False):
         """
         Add new tokens by grouping existing tokens together
         tokens_to_group[idx] = [token_1, token_2, ..., token_n]
         - progressively combine 2 tokens at a time (1-2, 12-3, 123-4, ...)
+        - check for pre-existing merges when adding new tokens
+        - return end-of-merge token idx for wte/lm-head update (for each merges)
         """
+        eom_tokens = [] 
+        
         for token_group in tokens_to_group:
 
             if not all(t in self.vocab for t in token_group):
@@ -64,19 +72,39 @@ class ETokenizer(Tokenizer):
             if len(token_group) == 1:
                 continue
             
-            prefix_token_idx = token_group[0]
+            # The Correct Logic should be a two-pointer approach
+            length = len(token_group) - 1
+            l, r = 0, 1
+            prefix_token_idx = token_group[l]
             prefix_token = self.vocab[prefix_token_idx]
             
-            for curr_token_idx in token_group[1:]: 
+            while l < r: 
                 
-                new_token = prefix_token + self.vocab[curr_token_idx]
-                new_idx = max(self.vocab.keys()) + 1  # maximum token idx plus one | not continuous
-                print(" :: Adding new token: ", new_token, " with idx: ", new_idx)
-                self.vocab[new_idx] = new_token
-                self.merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx
-
+                curr_token_idx = token_group[r]                
+                curr_token = self.vocab[curr_token_idx]
+                
+                new_token = prefix_token + curr_token
+                
+                if new_token in self.inverse_vocab:
+                    prefix_token_idx = self.inverse_vocab[new_token]
+                    
+                else:
+                    new_idx = max(self.vocab.keys()) + 1  # maximum token idx plus one | assume consecutive token ids
+                    self.vocab[new_idx] = new_token
+                    self.merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx                    
+                    prefix_token_idx = new_idx
+                    eom_tokens.append(curr_token_idx) # end-of-merge token idx
+                    
+                # update pointers 
+                l += 1
+                r = min(r+1, length)
+                
+                # update prefix token
                 prefix_token = new_token
                 
+        if return_eom:
+            return eom_tokens
+        
     def identify_splittable_tokens(self, tokens_to_split): 
         
         tokens_removed = []
@@ -113,9 +141,7 @@ class ETokenizer(Tokenizer):
         
         self.vocab = new_vocab
         self.merges = new_merges
-        
-        print(" :: Removed tokens: ", tokens_to_remove)
-        
+                
     
     def split_tokens(self, tokens_to_split):
         """

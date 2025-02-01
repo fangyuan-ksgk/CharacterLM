@@ -1,4 +1,7 @@
 # appears to be a better name tha 'update'
+from .grouping import detect_spike_token, detect_group_token
+from .embed import add_token_wte, remove_token_wte, add_token_lm_head, remove_token_lm_head
+
 class VocabularyManager:
     """Manages joint updates to both model vocabulary and tokenizer vocabulary"""
     
