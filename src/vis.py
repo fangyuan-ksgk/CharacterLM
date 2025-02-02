@@ -184,6 +184,7 @@ def display_colored_text_with_histogram(text, char_colors, title=None, char_per_
 from typing import Optional
 
 def visualize_text_multiline(text, char_colors, groups: Optional[list]=None, 
+                             output_path: Optional[str] = None, 
                              max_chars_per_row=10, 
                              title = None,
                              fontsize=24,
@@ -307,4 +308,11 @@ def visualize_text_multiline(text, char_colors, groups: Optional[list]=None,
     ax.axis('off')
     if title: 
         plt.title(title, fontsize=30, fontweight='bold')
+    
+    if output_path:
+        fig.savefig(output_path, bbox_inches='tight')
+    
     plt.show()
+    plt.close(fig)
+    
+    return 

@@ -1,19 +1,23 @@
-# appears to be a better name tha 'update'
+# appears to be a better name than 'update'
+import os 
 import torch 
 from .grouping import detect_spike_token, detect_group_token, get_spike_token_mask, get_group_token_mask, get_remove_token_mask
 from .embed import add_token_wte, remove_token_wte, add_token_lm_head, remove_token_lm_head
-from .utils import calculate_bits_per_char, shift_token_loss, map_token_to_char_perplexity
+from .utils import calculate_bits_per_char, shift_token_loss, map_token_to_char_perplexity, short_one
 from .vis import visualize_text_multiline
 
 class Magicab:
     """Manages joint updates to both model vocabulary and tokenizer vocabulary"""
     
-    def __init__(self, model, tokenizer, spike_quantile_threshold=0.8, group_quantile_threshold=0.6):
+    def __init__(self, model, tokenizer, spike_quantile_threshold=0.8, group_quantile_threshold=0.6, 
+                 checkpoint_dir: str = "checkpoint/base"):
         self.model = model
         self.tokenizer = tokenizer
         self.spike_quantile_threshold = spike_quantile_threshold
         self.group_quantile_threshold = group_quantile_threshold
-        
+        self.checkpoint_dir = checkpoint_dir
+        self.log_dir = os.path.join(checkpoint_dir, "log")
+        os.makedirs(self.log_dir, exist_ok=True)
         
     def inference(self, text): 
         """ 
@@ -51,8 +55,9 @@ class Magicab:
         )
         
         # 3. Get embeddings for new tokens using end-of-merge positions
-        representations = self.model.get_representation(input_ids).detach()
-        group_token_embeddings = representations[-1][0, eom_positions]
+        representations = self.model.get_representation(input_ids)
+        eom_input_positions = short_one(eom_positions)
+        group_token_embeddings = representations[-1][0, eom_input_positions]
         
         # 4. Update model weights
         new_wte = self._update_word_embeddings(
@@ -72,7 +77,7 @@ class Magicab:
         return self.model, self.tokenizer
 
 
-    def visualize_changes(self, text): 
+    def visualize_changes(self, text, file_name: str = "demo"): 
         """Visualizes the changes in perplexity before and after updating the vocabulary"""
         res = self.inference(text)
         token_ids, token_perplexity = res['token_ids'], res['token_perplexity']
@@ -82,14 +87,14 @@ class Magicab:
         spike_color = 'pink'
         spike_token_mask, spike_token_groups = get_spike_token_mask(token_perplexity, quantile_threshold=self.spike_quantile_threshold, color=spike_color)
         char_perplexity, char_colors, groups = map_token_to_char_perplexity(text, token_ids, token_perplexity, decode, spike_token_mask, spike_token_groups, mask_color=spike_color)
-        visualize_text_multiline(text, char_colors, groups=groups, max_chars_per_row=60, title='Spiking Token')
+        visualize_text_multiline(text, char_colors, groups=groups, max_chars_per_row=60, title='Spiking Token', output_path=os.path.join(self.log_dir, f"{file_name}_spike.png"))
 
         # (b). Remove token visualization 
         remove_quantile_threshold = 0.8
         remove_color = 'orange'
         remove_token_mask, remove_token_groups = get_remove_token_mask(token_ids, token_perplexity, self.tokenizer, quantile_threshold=remove_quantile_threshold, color=remove_color)
         char_perplexity, char_colors, groups = map_token_to_char_perplexity(text, token_ids, token_perplexity, decode, remove_token_mask, remove_token_groups, mask_color=remove_color)
-        visualize_text_multiline(text, char_colors, groups=groups, max_chars_per_row=60, title='Tokens to Remove')
+        visualize_text_multiline(text, char_colors, groups=groups, max_chars_per_row=60, title='Tokens to Remove', output_path=os.path.join(self.log_dir, f"{file_name}_remove.png"))
 
 
         # (c). Group token visualization 
@@ -98,7 +103,7 @@ class Magicab:
         group_token_mask, token_groups = get_group_token_mask(token_perplexity, quantile_threshold=group_quantile_threshold, color=group_color)
         # take in token groups and convert it into char_groups for visualization 
         char_perplexity, char_colors, groups = map_token_to_char_perplexity(text, token_ids, token_perplexity, decode, group_token_mask, token_groups, mask_color=group_color)
-        visualize_text_multiline(text, char_colors, groups=groups, max_chars_per_row=60, title='Group Token')
+        visualize_text_multiline(text, char_colors, groups=groups, max_chars_per_row=60, title='Group Token', output_path=os.path.join(self.log_dir, f"{file_name}_group.png"))
 
     
     def _detect_spike_tokens(self, token_ids, token_perplexity):

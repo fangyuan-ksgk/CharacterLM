@@ -95,7 +95,7 @@ if ddp:
     gradient_accumulation_steps //= ddp_world_size
 else:
     # if not ddp, we are running on a single gpu, and one process
-    master_process = True
+    master_process = Truez
     seed_offset = 0
     ddp_world_size = 1
 tokens_per_iter = gradient_accumulation_steps * ddp_world_size * batch_size * block_size
@@ -257,7 +257,12 @@ local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
 while True:
-
+    
+    # TODO: update model & tokenizer with Magicab | tokenizer should be used to update the 'data.bin' file, too
+    # if iter_num % magicab_interval == 0: 
+    #     model, tokenizer = magicab.update_vocabulary(text)
+    
+    
     # determine and set the learning rate for this iteration
     lr = get_lr(iter_num) if decay_lr else learning_rate
     for param_group in optimizer.param_groups:

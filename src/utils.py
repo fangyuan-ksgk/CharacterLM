@@ -94,4 +94,7 @@ def inference(model, tok, text):
     char_perplexity = map_token_to_char_perplexity(text, token_ids, token_perplexity, decode)
     return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, 
             "bpc_loss": bpc_loss, "char_perplexity": char_perplexity}
-
+    
+    
+def short_one(positions): 
+    return [p-1 for p in positions]
