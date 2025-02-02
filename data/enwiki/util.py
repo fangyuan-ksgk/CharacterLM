@@ -129,7 +129,8 @@ def prepare_enwiki_data(clean=False, tokenizer=None):
     else:
         meta = {
             'vocab_size': vocab_size,
-            'tokenizer': tokenizer,
+            'itos': tokenizer.vocab,
+            'stoi': tokenizer.inverse_vocab,
         }
         
     with open(os.path.join(data_dir, 'meta.pkl'), 'wb') as f:

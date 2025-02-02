@@ -32,6 +32,27 @@ def get_spike_token_mask(token_loss, quantile_threshold=0.80, color='red'):
     
     return spike_token_mask, spike_token_groups
 
+
+def detect_spike_token_batch(token_perplexity, quantile_threshold=0.80, color='red', return_groups=True):
+    """ 
+    Detect spike token in batch data 
+    """
+    loss_threshold = torch.quantile(token_perplexity, quantile_threshold, axis=-1)
+    prev_perplexity = torch.cat([token_perplexity[:, :1], token_perplexity[:, :-1]], dim=-1)
+    spike_token_mask = (token_perplexity > prev_perplexity) & (token_perplexity > loss_threshold.unsqueeze(-1))
+    spike_token_indices = [torch.nonzero(row)[:, 0] for row in spike_token_mask]
+    
+    if return_groups: 
+        spike_token_groups = []
+        for spike_token_ids in spike_token_indices: 
+            spike_token_gs = []
+            for index in spike_token_ids: 
+                spike_token_gs.append((index, index + 1, str(len(spike_token_gs) + 1), color))
+            spike_token_groups.append(spike_token_gs)
+        return spike_token_indices, spike_token_mask, spike_token_groups
+    
+    return spike_token_indices, spike_token_mask
+
 def _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=0.80): 
     spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
     positions_to_remove = []

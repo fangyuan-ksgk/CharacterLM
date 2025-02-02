@@ -1,9 +1,10 @@
 # appears to be a better name than 'update'
 import os 
 import torch 
+from typing import Optional
 from .grouping import detect_spike_token, detect_group_token, get_spike_token_mask, get_group_token_mask, get_remove_token_mask
 from .embed import add_token_wte, remove_token_wte, add_token_lm_head, remove_token_lm_head
-from .utils import calculate_bits_per_char, shift_token_loss, map_token_to_char_perplexity, short_one
+from .utils import calculate_bits_per_char, shift_token_loss, map_token_to_char_perplexity, short_one, inference
 from .vis import visualize_text_multiline
 
 class Magicab:
@@ -19,20 +20,8 @@ class Magicab:
         self.log_dir = os.path.join(checkpoint_dir, "log")
         os.makedirs(self.log_dir, exist_ok=True)
         
-    def inference(self, text): 
-        """ 
-        Miscellaneous results from model inference
-        """
-        token_ids = torch.tensor(self.tokenizer.encode(text)).view(1, -1)
-        input_ids, target_ids = token_ids[:, :-1], token_ids[:, 1:]
-        logits, token_loss = self.model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
-        
-        decode = lambda x: self.tokenizer.decode(x)
-        bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode)
-        token_perplexity = shift_token_loss(token_loss)
-        char_perplexity = map_token_to_char_perplexity(text, token_ids, token_perplexity, decode)
-        return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, "bpc_loss": bpc_loss, "char_perplexity": char_perplexity}
-
+    def inference(self, text = None, input_ids = None, target_ids = None): 
+        return inference(self.model, self.tokenizer, text, input_ids, target_ids)
         
     def update_vocabulary(self, text):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
@@ -75,7 +64,6 @@ class Magicab:
         self.model.lm_head = new_lm_head
         
         return self.model, self.tokenizer
-
 
     def visualize_changes(self, text, file_name: str = "demo"): 
         """Visualizes the changes in perplexity before and after updating the vocabulary"""
