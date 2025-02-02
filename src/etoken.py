@@ -14,16 +14,9 @@ class ETokenizer(Tokenizer):
     def inverse_vocab(self): 
         return {v:k for k, v in self.vocab.items()}
     
-    def train(self, text, vocab_size, verbose=False):
-        """ 
-        I would need to change this :: it already assume 'co-occurance based token merging'
-        KeyPoint for 'merges' dictionary: 
-        - pair of token ids : new token id 
-        - order of pair in merges: 'better/frequent' merge first
-        - during encoding we also favor earlier merges
-        """
-        raise NotImplementedError
-
+    @property 
+    def vocab_size(self): 
+        return len(self.vocab)
 
     def decode(self, ids):
         # given ids (list of integers), return Python string
