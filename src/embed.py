@@ -46,7 +46,7 @@ def add_token_wte(wte, new_embedding_vectors):
     # Create new embedding layer with updated size
     new_embedding = torch.nn.Embedding(new_weights.size(0), weights.size(1))
     new_embedding.weight.data = new_weights
-    
+        
     return new_embedding
 
 def add_token_lm_head(lm_head, init_indices: Optional[torch.Tensor] = None,
@@ -71,4 +71,3 @@ def add_token_lm_head(lm_head, init_indices: Optional[torch.Tensor] = None,
         new_lm_head.bias.data = new_bias
     
     return new_lm_head
-

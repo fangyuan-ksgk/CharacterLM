@@ -4,14 +4,15 @@ import torch
 def _detect_spike_token(token_loss, quantile_threshold=0.80): 
     """ 
     Spike token cross perplexity threshold, and shows a sudden increase in perplexity
+    :: Need to consider 'multiple-character tokens' 
     """
     loss_threshold = torch.quantile(token_loss, quantile_threshold)
-    spike_tokens = []
+    spike_token_indices = []
     for i in range(len(token_loss)):
         last_token_loss = token_loss[max(i-1, 0)]
         if token_loss[i] > loss_threshold and token_loss[i] > last_token_loss: 
-            spike_tokens.append(i)
-    return spike_tokens
+            spike_token_indices.append(i)
+    return spike_token_indices
 
 def detect_spike_token(token_ids, token_loss, quantile_threshold=0.80): 
     spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
@@ -20,11 +21,36 @@ def detect_spike_token(token_ids, token_loss, quantile_threshold=0.80):
         tokens_to_spike.append(token_ids[0, index].item())
     return tokens_to_spike
 
-def get_spike_token_mask(token_loss, quantile_threshold=0.80): 
+def get_spike_token_mask(token_loss, quantile_threshold=0.80, color='red'): 
     spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
     spike_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
     spike_token_mask[spike_token_indices] = True
-    return spike_token_mask
+    
+    spike_token_groups = []
+    for index in spike_token_indices: 
+        spike_token_groups.append((index, index + 1, str(len(spike_token_groups) + 1), color))
+    
+    return spike_token_mask, spike_token_groups
+
+def _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=0.80): 
+    spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
+    positions_to_remove = []
+    for index in spike_token_indices:
+        token_id = token_ids[0, index].item()
+        if token_id in tok.merges.values(): 
+            positions_to_remove.append(index)
+    return positions_to_remove
+
+def get_remove_token_mask(token_ids, token_loss, tok, quantile_threshold=0.80, color='red'): 
+    positions_to_remove = _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=quantile_threshold)
+    remove_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
+    remove_token_mask[positions_to_remove] = True
+    
+    remove_token_groups = []
+    for index in positions_to_remove: 
+        remove_token_groups.append((index, index + 1, str(len(remove_token_groups) + 1), color))
+    
+    return remove_token_mask, remove_token_groups
 
 # Natural token group: consecutive decrease in perplexity below threshold
 def _detect_group_token(token_loss, quantile_threshold=0.7): 
@@ -56,9 +82,12 @@ def detect_group_token(token_ids, token_loss, quantile_threshold=0.7, return_ind
     else: 
         return tokens_to_group
 
-def get_group_token_mask(token_loss, quantile_threshold=0.7): 
-    group_token = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
+def get_group_token_mask(token_loss, quantile_threshold=0.7, color='green'): 
+    group_token_indices = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
     group_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
-    for group in group_token: 
+    groups = []
+    for group in group_token_indices: 
         group_token_mask[group] = True
-    return group_token_mask
+        curr_group = group[0], group[-1]+1, str(len(groups) + 1), color
+        groups.append(curr_group)
+    return group_token_mask, groups

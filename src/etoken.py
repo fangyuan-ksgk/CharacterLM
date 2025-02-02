@@ -54,17 +54,20 @@ class ETokenizer(Tokenizer):
         return ids
 
 
-    def add_tokens(self, tokens_to_group, return_eom=False):
+    def add_tokens(self, tokens_to_group, group_positions=None, return_eom=False):
         """
         Add new tokens by grouping existing tokens together
         tokens_to_group[idx] = [token_1, token_2, ..., token_n]
         - progressively combine 2 tokens at a time (1-2, 12-3, 123-4, ...)
         - check for pre-existing merges when adding new tokens
         - return end-of-merge token idx for wte/lm-head update (for each merges)
+        - need to return group_idx & eom_position for initializing wte ...
         """
         eom_tokens = [] 
+        group_indices = []
+        in_group_positions = []
         
-        for token_group in tokens_to_group:
+        for group_idx, token_group in enumerate(tokens_to_group):
 
             if not all(t in self.vocab for t in token_group):
                 raise ValueError(f"All tokens in group must exist in vocabulary: {token_group}")
@@ -94,6 +97,8 @@ class ETokenizer(Tokenizer):
                     self.merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx                    
                     prefix_token_idx = new_idx
                     eom_tokens.append(curr_token_idx) # end-of-merge token idx
+                    group_indices.append(group_idx)
+                    in_group_positions.append(r)
                     
                 # update pointers 
                 l += 1
@@ -102,7 +107,10 @@ class ETokenizer(Tokenizer):
                 # update prefix token
                 prefix_token = new_token
                 
-        if return_eom:
+        if return_eom and group_positions is not None:
+            eom_positions = [group_positions[group_idx][in_group_position] for in_group_position, group_idx in zip(in_group_positions, group_indices)]
+            return eom_tokens, eom_positions
+        elif return_eom and group_positions is None:
             return eom_tokens
         
     def identify_splittable_tokens(self, tokens_to_split): 

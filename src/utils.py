@@ -11,7 +11,17 @@ def shift_token_loss(token_loss, return_tensor=True):
     else: 
         return token_perplexity 
 
-def map_token_to_char_perplexity(text, token_ids, token_perplexity, decode_fn, token_mask=None, mask_color='red'):
+def map_token_to_char_group(text, token_ids, decode_fn, token_groups): 
+    char_groups = [] 
+    for token_group in token_groups: 
+        start_token_position, end_token_position, group_name, group_color = token_group
+        prefix_test = decode_fn(token_ids[0, :start_token_position].tolist())
+        token_text = decode_fn(token_ids[0, start_token_position:end_token_position].tolist())
+        start_text_position = len(prefix_test)
+        end_text_position = start_text_position + len(token_text)
+        char_groups.append((start_text_position, end_text_position, group_name, group_color))
+    return char_groups
+def map_token_to_char_perplexity(text, token_ids, token_perplexity, decode_fn, token_mask=None, token_groups=None, mask_color='red'):
     """
     Map token loss to character-level perplexity
     """
@@ -32,7 +42,10 @@ def map_token_to_char_perplexity(text, token_ids, token_perplexity, decode_fn, t
     
         curr_char_idx += token_len
         
-    if token_mask is not None:
+    if token_mask is not None and token_groups is not None:
+        char_groups = map_token_to_char_group(text, token_ids, decode_fn, token_groups)
+        return char_perplexity, char_colors, char_groups
+    elif token_mask is not None:
         return char_perplexity, char_colors
     else:
         return char_perplexity
@@ -66,4 +79,19 @@ def calculate_bits_per_char(token_loss, target_ids, decode_fn):
     bits_per_char = (bits_per_token.detach() * token_lens).sum() / total_chars
     return bits_per_char
 
+
+def inference(model, tok, text): 
+    """ 
+    Miscellaneous results from model inference
+    """
+    token_ids = torch.tensor(tok.encode(text)).view(1, -1)
+    input_ids, target_ids = token_ids[:, :-1], token_ids[:, 1:]
+    logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
+    
+    decode = lambda x: tok.decode(x)
+    bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode)
+    token_perplexity = shift_token_loss(token_loss)
+    char_perplexity = map_token_to_char_perplexity(text, token_ids, token_perplexity, decode)
+    return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, 
+            "bpc_loss": bpc_loss, "char_perplexity": char_perplexity}
 

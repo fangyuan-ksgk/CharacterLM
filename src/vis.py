@@ -1,7 +1,10 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patheffects
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import matplotlib.gridspec as gridspec
+from matplotlib.path import Path
+
 
 # (b). Add color to each word within the text 
 #    - add color to the first word in the first row 
@@ -174,4 +177,134 @@ def display_colored_text_with_histogram(text, char_colors, title=None, char_per_
     if title:
         fig.suptitle(title, fontsize=30, fontweight='bold', y=0.98)
     
+    plt.show()
+    
+    
+
+from typing import Optional
+
+def visualize_text_multiline(text, char_colors, groups: Optional[list]=None, 
+                             max_chars_per_row=10, 
+                             title = None,
+                             fontsize=24,
+                             row_gap=1,
+                             const=1.0):
+    """
+    Visualizes text wrapped into multiple rows with per-character background colors 
+    and annotated bracket groups.
+
+    Parameters:
+      text (str): The text to display.
+      char_colors (list of str): A list of background colors (one per character).
+      groups (list of tuples): Each tuple may be:
+             (start, end)
+             (start, end, label)
+             (start, end, label, bracket_color)
+             Here, start and end are indices into the full text (end is exclusive).
+             Groups spanning multiple rows are automatically split.
+      max_chars_per_row (int): Maximum number of characters to display per row.
+    """
+    rows = [text[i:i+max_chars_per_row] for i in range(0, len(text), max_chars_per_row)]
+    color_rows = [char_colors[i:i+max_chars_per_row] for i in range(0, len(text), max_chars_per_row)]
+    n_rows = len(rows)
+
+    if groups:
+        row_gap += 0.5  # Adjust as needed
+
+    fig, ax = plt.subplots(figsize=(max(8, max_chars_per_row * 0.3), row_gap * n_rows))
+
+    scaled_row_gap = row_gap * (fontsize / 24) 
+    for row_idx, (row_text, row_colors) in enumerate(zip(rows, color_rows)):
+
+        y = -row_idx * scaled_row_gap
+        for col_idx, (ch, bg_color) in enumerate(zip(row_text, row_colors)):
+            rect_height = fontsize/36
+            rect_width = fontsize/36 * 1.3
+            rect = patches.Rectangle((col_idx - rect_width/2, y - rect_height/2), rect_width, rect_height,
+                                     facecolor=bg_color,
+                                     edgecolor='none',
+                                     zorder=2)
+            ax.add_patch(rect)
+            
+            ax.text(col_idx, y, ch,
+                    fontsize=fontsize,
+                    fontfamily='monospace',
+                    ha='center', va='center',
+                    zorder=2)
+
+    if groups:
+        for group in groups:
+            # Unpack the group tuple.
+            if len(group) == 4:
+                start, end, label, bracket_color = group
+            elif len(group) == 3:
+                start, end, label = group
+                bracket_color = 'black'
+            else:
+                start, end = group
+                label = None
+                bracket_color = 'black'
+            
+            first_row = start // max_chars_per_row
+            last_row  = (end - 1) // max_chars_per_row  # end is exclusive
+
+            for row in range(first_row, last_row + 1):
+                row_start_index = row * max_chars_per_row
+                row_end_index   = row_start_index + max_chars_per_row
+                seg_start = max(start, row_start_index)
+                seg_end   = min(end, row_end_index)
+                if seg_end <= seg_start:
+                    continue  # No characters in this row for the group
+
+                local_start = seg_start - row_start_index
+                local_end   = seg_end - row_start_index  # this is exclusive
+
+                x_left  = local_start - 0.3
+                x_right = local_end - 0.7
+
+                y_text = -row * row_gap
+                y_top    = y_text - 0.4
+                y_bottom = y_text - 0.7
+
+                offset = (y_top - y_bottom)  # Here, if y_top-y_bottom=0.3, offset=0.3
+
+                # Define vertices for the curved bracket:
+                vertices = [
+                    (x_left, y_top),                       # Start at top left
+                    (x_left - offset/2, y_top),              # Control point for left curve
+                    (x_left - offset/2, y_bottom),           # Second control point for left curve
+                    (x_left + offset, y_bottom),                    # Left-bottom point
+                    (x_right - offset, y_bottom),                   # Right-bottom point (straight segment)
+                    (x_right + offset/2, y_bottom),          # Control point for right curve
+                    (x_right + offset/2, y_top),             # Second control point for right curve
+                    (x_right, y_top)                       # End at top right
+                ]
+                codes = [
+                    Path.MOVETO,
+                    Path.CURVE4,
+                    Path.CURVE4,
+                    Path.CURVE4,
+                    Path.LINETO,
+                    Path.CURVE4,
+                    Path.CURVE4,
+                    Path.CURVE4
+                ]
+                bracket_path = Path(vertices, codes)
+                bracket_patch = patches.PathPatch(bracket_path,
+                                                fill=False,
+                                                lw=2,
+                                                color=bracket_color,
+                                                zorder=0)
+                ax.add_patch(bracket_patch)
+                
+                # Place the label only on the first segment if provided.
+                if label and row == first_row:
+                    ax.text((x_left + x_right) / 2, y_bottom - 0.1, label,
+                            ha='center', va='top', fontsize=13, zorder=2, color=bracket_color)
+    
+    ax.set_xlim(-1, max_chars_per_row)
+    ax.set_ylim(-row_gap * n_rows - fontsize/72 + 0.5, 1)
+    ax.axis('off')
+    if title: 
+        plt.title(title, fontsize=30, fontweight='bold')
     plt.show()
