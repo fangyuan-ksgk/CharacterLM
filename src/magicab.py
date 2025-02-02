@@ -25,55 +25,53 @@ class Magicab:
     def inference(self, text = None, input_ids = None, target_ids = None): 
         return inference(self.model, self.tokenizer, text, input_ids, target_ids)
         
-    def update_vocabulary(self, text):
+    def update_vocabulary(self, text = None, input_ids = None, target_ids = None):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
         
-        res = self.inference(text)
-        input_ids, token_ids, token_perplexity, bpc_loss, char_perplexity = res.values()
+        res = self.inference(text, input_ids, target_ids)
+        input_ids, token_ids, token_perplexity = res['input_ids'], res['token_ids'], res['token_perplexity']
         
-        # 1. Detect tokens to add/remove
-        tokens_to_split = self._detect_spike_tokens(token_ids, token_perplexity)
-        tokens_to_remove = self.tokenizer.identify_splittable_tokens(tokens_to_split)
+        tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups = self._detect_remove_tokens(token_ids, token_perplexity)      
+        tokens_to_group, group_token_masks, token_groups, group_token_positions = self._detect_group_tokens(token_ids, token_perplexity)
+
+        for input_ids_row, tokens_to_remove_row, tokens_to_group_row, group_token_positions_row in zip(input_ids, tokens_to_remove, tokens_to_group, group_token_positions): 
+            
+            input_ids_row = input_ids_row.unsqueeze(0)
+            
+            self.tokenizer.remove_tokens(tokens_to_remove_row)
+
+            eom_tokens, eom_positions = self.tokenizer.add_tokens(
+                tokens_to_group_row, 
+                group_positions=group_token_positions_row,
+                return_eom=True
+            )
         
-        tokens_to_group, group_positions = self._detect_group_tokens(token_ids, token_perplexity)
+            representations = self.model.get_representation(input_ids_row)
+            eom_input_positions = short_one(eom_positions)
+            group_token_embeddings = representations[-1][0, eom_input_positions]
+            
+            new_wte = self._update_word_embeddings(
+                tokens_to_remove=tokens_to_remove_row,
+                tokens_to_add=group_token_embeddings
+            )
+            
+            new_lm_head = self._update_language_model_head(
+                tokens_to_remove=tokens_to_remove_row,
+                eom_tokens=eom_tokens
+            )
         
-        # 2. Update tokenizer vocabulary and get end-of-merge positions
-        self.tokenizer.remove_tokens(tokens_to_remove)
-        eom_tokens, eom_positions = self.tokenizer.add_tokens(
-            tokens_to_group, 
-            group_positions=group_positions,
-            return_eom=True
-        )
-        
-        # 3. Get embeddings for new tokens using end-of-merge positions
-        representations = self.model.get_representation(input_ids)
-        eom_input_positions = short_one(eom_positions)
-        group_token_embeddings = representations[-1][0, eom_input_positions]
-        
-        # 4. Update model weights
-        new_wte = self._update_word_embeddings(
-            tokens_to_remove=tokens_to_remove,
-            tokens_to_add=group_token_embeddings
-        )
-        
-        new_lm_head = self._update_language_model_head(
-            tokens_to_remove=tokens_to_remove,
-            eom_tokens=eom_tokens
-        )
-        
-        # 5. Update model layers
-        self.model.transformer.wte = new_wte
-        self.model.lm_head = new_lm_head
+            self.model.transformer.wte = new_wte
+            self.model.lm_head = new_lm_head
         
         return self.model, self.tokenizer
 
-    def visualize_changes(self, texts, file_name: str = "demo"): 
+    def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo"): 
         
         """Visualizes the changes in perplexity before and after updating the vocabulary"""
-        if isinstance(texts, str): 
-            texts = [texts]
-        res = self.inference(texts)
-        token_ids, token_perplexity = res['token_ids'], res['token_perplexity']
+        
+        res = self.inference(texts, input_ids, target_ids)
+        
+        texts, token_ids, token_perplexity = res['texts'], res['token_ids'], res['token_perplexity']
         decode = lambda x: self.tokenizer.decode(x)
         
         # (a). Spiking token visualization
@@ -100,7 +98,7 @@ class Magicab:
         # (c). Group token visualization 
         group_quantile_threshold = 0.8
         group_color = 'lightgreen'
-        group_token_indices, group_token_mask, token_groups = detect_group_token_batch(token_perplexity, quantile_threshold=group_quantile_threshold, color=group_color)
+        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, quantile_threshold=group_quantile_threshold, color=group_color)
         # take in token groups and convert it into char_groups for visualization 
         char_perplexity, char_colors, groups = map_batch_token_to_char_perplexity(texts, token_ids, token_perplexity, decode, group_token_mask, token_groups, mask_color=group_color)
 
@@ -116,14 +114,28 @@ class Magicab:
             token_perplexity,
             quantile_threshold=self.spike_quantile_threshold
         )
+        
+    def _detect_remove_tokens(self, token_ids, token_perplexity):
+        """Identifies tokens with unusually high perplexity"""
+        remove_token_positions, remove_token_mask, remove_token_groups =  detect_remove_token_batch(
+            token_ids, 
+            token_perplexity,
+            self.tokenizer,
+            quantile_threshold=self.spike_quantile_threshold
+        )
+        
+        tokens_to_remove = []
+        for remove_token_mask_row, token_ids_row in zip(remove_token_mask, token_ids): 
+            tokens_to_remove.append(token_ids_row[remove_token_mask_row])
+            
+        return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
 
     def _detect_group_tokens(self, token_ids, token_perplexity):
         """Identifies sequences of tokens that should be merged"""
-        return detect_group_token(
-            token_ids,
+        return detect_group_token_batch(
+            token_ids, 
             token_perplexity, 
-            quantile_threshold=self.group_quantile_threshold,
-            return_indices=True
+            quantile_threshold=self.group_quantile_threshold
         )
 
     def _update_word_embeddings(self, tokens_to_remove, tokens_to_add):

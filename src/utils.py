@@ -154,6 +154,7 @@ def inference(model, tokenizer,
               text = None, 
               input_ids = None, 
               target_ids = None):
+    
     valid_text = text is not None and (isinstance(text, str) or isinstance(text, list))
     valid_batch = (input_ids is not None and target_ids is not None) and (input_ids.shape == target_ids.shape)
     assert valid_text or valid_batch, "Either text or input_ids and target_ids must be provided"
@@ -165,7 +166,12 @@ def inference(model, tokenizer,
         input_ids = token_ids[:, :-1]
         target_ids = token_ids[:, 1:]
     
-    return batch_inference(model, tokenizer, input_ids, target_ids)
+    res = batch_inference(model, tokenizer, input_ids, target_ids)
+    
+    if valid_text: 
+        res['texts'] = texts
+        
+    return res
 
     
 def short_one(positions): 
