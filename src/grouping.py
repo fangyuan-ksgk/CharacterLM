@@ -53,6 +53,29 @@ def detect_spike_token_batch(token_perplexity, quantile_threshold=0.80, color='r
     
     return spike_token_indices, spike_token_mask
 
+
+def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_threshold=0.80, color='red', return_groups=True):
+    """ 
+    Detect remove token in batch data 
+    """
+    loss_threshold = torch.quantile(token_perplexity, quantile_threshold, axis=-1)
+    prev_perplexity = torch.cat([token_perplexity[:, :1], token_perplexity[:, :-1]], dim=-1)
+    spike_token_mask = (token_perplexity < prev_perplexity) & (token_perplexity < loss_threshold.unsqueeze(-1))
+    merge_values = torch.tensor(list(tokenizer.merges.values()))
+    merge_token_mask = torch.isin(token_ids, merge_values)
+    remove_token_mask = spike_token_mask & merge_token_mask
+    
+    remove_token_indices = [torch.nonzero(row)[:, 0] for row in remove_token_mask]
+    
+    if return_groups: 
+        remove_token_groups = []
+        for remove_token_ids in remove_token_indices: 
+            remove_token_groups.append(remove_token_ids)
+        return remove_token_indices, remove_token_mask, remove_token_groups
+    
+    return remove_token_indices, remove_token_mask
+
+
 def _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=0.80): 
     spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
     positions_to_remove = []
@@ -93,6 +116,10 @@ def _detect_group_token(token_loss, quantile_threshold=0.7):
         natural_group.append(curr_group)    
     return natural_group
 
+
+
+
+
 def detect_group_token(token_ids, token_loss, quantile_threshold=0.7, return_indices=False): 
     group_token_indices = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
     tokens_to_group = []
@@ -102,6 +129,8 @@ def detect_group_token(token_ids, token_loss, quantile_threshold=0.7, return_ind
         return tokens_to_group, group_token_indices
     else: 
         return tokens_to_group
+    
+    
 
 def get_group_token_mask(token_loss, quantile_threshold=0.7, color='green'): 
     group_token_indices = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
@@ -111,4 +140,23 @@ def get_group_token_mask(token_loss, quantile_threshold=0.7, color='green'):
         group_token_mask[group] = True
         curr_group = group[0], group[-1]+1, str(len(groups) + 1), color
         groups.append(curr_group)
-    return group_token_mask, groups
+    return group_token_indices, group_token_mask, groups
+
+
+def detect_group_token_batch(token_perplexity, quantile_threshold=0.7, color='green'): 
+    """ 
+    Detect group token in batch data 
+    """
+    if token_perplexity.ndim == 1: 
+        token_perplexity = token_perplexity.unsqueeze(0)
+        
+    group_token_indices = []
+    group_token_masks = []
+    groups = []
+    for token_perp in token_perplexity: 
+        group_token_ids, group_token_mask, group = get_group_token_mask(token_loss=token_perp, quantile_threshold=quantile_threshold, color=color)
+        group_token_indices.append(group_token_ids)
+        group_token_masks.append(group_token_mask)
+        groups.append(group)
+        
+    return group_token_indices, torch.stack(group_token_masks, axis=0), groups
