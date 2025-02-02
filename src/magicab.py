@@ -5,7 +5,7 @@ from .embed import add_token_wte, remove_token_wte, add_token_lm_head, remove_to
 from .utils import calculate_bits_per_char, shift_token_loss, map_token_to_char_perplexity
 from .vis import visualize_text_multiline
 
-class VocabularyManager:
+class Magicab:
     """Manages joint updates to both model vocabulary and tokenizer vocabulary"""
     
     def __init__(self, model, tokenizer, spike_quantile_threshold=0.8, group_quantile_threshold=0.6):

@@ -1,3 +1,3 @@
-from .vocabulary_manager import VocabularyManager
+from .magicab import Magicab
 from .vis import * 
 from .utils import * 
