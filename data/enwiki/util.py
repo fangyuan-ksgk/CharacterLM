@@ -102,6 +102,7 @@ def prepare_enwiki_data(clean=False, tokenizer=None):
     test_ids = encode(test_data)
     
     print(f"Total tokens: {n}")
+    print(f"Vocab size: {vocab_size}")
     print(f"train has {len(train_ids):,} tokens")
     print(f"val has {len(val_ids):,} tokens")
     print(f"test has {len(test_ids):,} tokens")
