@@ -21,6 +21,17 @@ def get_stats(ids, counts=None):
         counts[pair] = counts.get(pair, 0) + 1
     return counts
 
+def get_valid_stats(ids, special_ids, counts=None): 
+    """
+    Given a list of integers, return a dictionary of counts of consecutive pairs
+    Example: [1, 2, 3, 1, 2] -> {(1, 2): 2, (2, 3): 1, (3, 1): 1}
+    Optionally allows to update an existing dictionary of counts
+    """
+    counts = {} if counts is None else counts
+    for pair in zip(ids, ids[1:]): # iterate consecutive elements
+        if pair[0] not in special_ids and pair[1] not in special_ids: 
+            counts[pair] = counts.get(pair, 0) + 1
+    return counts
 
 def merge(ids, pair, idx):
     """
@@ -63,6 +74,8 @@ def render_token(t: bytes) -> str:
 # -----------------------------------------------------------------------------
 # the base Tokenizer class
 
+SPECIAL_TOKENS = ["<|endoftext|>", "<pad>"]
+
 class Tokenizer:
     """Base class for Tokenizers"""
 
@@ -70,11 +83,9 @@ class Tokenizer:
         # default: vocab size of 256 (all bytes), no merges, no patterns
         self.merges = {} # (int, int) -> int
         self.pattern = "" # str
-        self.special_tokens = {} # str -> int, e.g. {'<|endoftext|>': 100257}
-        if char_vocab: 
-            self.vocab = {k: v for k, v in char_vocab.items()}
-        else: 
-            self.vocab = self._build_vocab()
+        self.special_tokens = SPECIAL_TOKENS
+        self.special2idx = {}
+        self.vocab = self._build_vocab(char_vocab)
         
     def train(self, text, vocab_size, verbose=False):
         # Tokenizer can train a vocabulary of size vocab_size from text
@@ -88,13 +99,18 @@ class Tokenizer:
         # Tokenizer can decode a list of integers into a string
         raise NotImplementedError
 
-    def _build_vocab(self): # basic byte-level vocabulary (size 256)
+    def _build_vocab(self, char_vocab=False): # basic byte-level vocabulary (size 256)
         # vocab is simply and deterministically derived from merges
-        vocab = {idx: bytes([idx]) for idx in range(256)}
-        for (p0, p1), idx in self.merges.items(): # merge - {(token1_idx, token_idx2): new_token_idx)} 
-            vocab[idx] = vocab[p0] + vocab[p1]
-        for special, idx in self.special_tokens.items(): # special tokens - {special_token: special_token_idx}
-            vocab[idx] = special.encode("utf-8")
+        if not char_vocab: 
+            vocab = {idx: bytes([idx]) for idx in range(256)}
+        else: 
+            vocab = {k: v for k, v in char_vocab.items()}
+        
+        vocab_size = len(vocab)
+        for idx, special in enumerate(self.special_tokens): 
+            vocab[vocab_size + idx] = special
+            self.special2idx[special] = vocab_size + idx
+            
         return vocab
 
     

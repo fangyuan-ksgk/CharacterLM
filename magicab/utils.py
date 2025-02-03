@@ -1,6 +1,8 @@
 import numpy as np 
 import torch 
 import math 
+from torch.nn import functional as F
+
 
 
 def shift_token_loss(token_loss, return_tensor=True): 
@@ -153,7 +155,8 @@ def batch_inference(model, tokenizer, input_ids, target_ids):
 def inference(model, tokenizer,
               text = None, 
               input_ids = None, 
-              target_ids = None):
+              target_ids = None,
+              pad = False):
     
     valid_text = text is not None and (isinstance(text, str) or isinstance(text, list))
     valid_batch = (input_ids is not None and target_ids is not None) and (input_ids.shape == target_ids.shape)
@@ -162,7 +165,15 @@ def inference(model, tokenizer,
     if valid_text: 
         texts = text if isinstance(text, list) else [text]
         token_ids_list = [torch.tensor(tokenizer.encode(t), dtype=torch.long) for t in texts]
+        
+        max_token_len = max([token_ids.shape[0] for token_ids in token_ids_list])
+        assert pad or all([token_ids.shape[0] == max_token_len for token_ids in token_ids_list]), "All token ids must be of the same length, or we need to pad them"
+        if pad: 
+            pad_token_id = tokenizer.special2idx["<pad>"]
+            token_ids_list = [F.pad(token_ids, pad=(max_token_len - token_ids.shape[0], 0), mode='constant', value=pad_token_id) for token_ids in token_ids_list]
+                    
         token_ids = torch.stack(token_ids_list, dim=0)
+        
         input_ids = token_ids[:, :-1]
         target_ids = token_ids[:, 1:]
     

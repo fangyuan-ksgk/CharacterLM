@@ -1,0 +1,9 @@
+torch>=2.0.0
+numpy
+transformers
+datasets
+tiktoken
+wandb
+tqdm
+accelerate
+SoMaJo

@@ -5,6 +5,8 @@ import numpy as np
 import argparse
 import regex as re
 from tqdm import tqdm
+from magicab import ETokenizer
+
 
 def clean_wiki_text(content):
     """Clean Wikipedia text content following wikifil.pl conventions"""
@@ -43,6 +45,7 @@ def clean_wiki_text(content):
     
     return txt
 
+
 def prepare_enwiki_data(clean=False, tokenizer=None):
     """
     Prepare the enwiki dataset for language modeling.
@@ -76,19 +79,11 @@ def prepare_enwiki_data(clean=False, tokenizer=None):
         chars = sorted(list(set(data)))
         stoi = { ch:i for i,ch in enumerate(chars) }
         itos = { i:ch for i,ch in enumerate(chars) }
-        
-        def encode(s):
-            return [stoi[c] for c in s]
-        def decode(l):
-            return ''.join([itos[i] for i in l])
-        
-        vocab_size = len(chars)
-        
-    else:
-        # Use provided tokenizer
-        encode = tokenizer.encode
-        decode = tokenizer.decode
-        vocab_size = tokenizer.vocab_size
+        tokenizer = ETokenizer(char_vocab=itos)
+           
+    encode = tokenizer.encode
+    decode = tokenizer.decode
+    vocab_size = tokenizer.vocab_size
 
     # create the train, validation and test splits
     n = len(data)

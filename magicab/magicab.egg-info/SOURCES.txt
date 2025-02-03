@@ -1,0 +1,6 @@
+setup.py
+magicab.egg-info/PKG-INFO
+magicab.egg-info/SOURCES.txt
+magicab.egg-info/dependency_links.txt
+magicab.egg-info/requires.txt
+magicab.egg-info/top_level.txt

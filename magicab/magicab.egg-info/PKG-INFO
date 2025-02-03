@@ -1,0 +1,21 @@
+Metadata-Version: 2.2
+Name: magicab
+Version: 0.1.0
+Summary: A package for building LLM with trainable tokenizer
+Author: Fangyuan Yu
+Author-email: fangyuan.yu18@gmail.com
+Requires-Python: >=3.6
+Requires-Dist: torch>=2.0.0
+Requires-Dist: numpy
+Requires-Dist: transformers
+Requires-Dist: datasets
+Requires-Dist: tiktoken
+Requires-Dist: wandb
+Requires-Dist: tqdm
+Requires-Dist: accelerate
+Requires-Dist: SoMaJo
+Dynamic: author
+Dynamic: author-email
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

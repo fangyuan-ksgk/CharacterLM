@@ -1,4 +1,19 @@
 from .base_tok import * 
+import json 
+
+
+def encode_char(text, special_tokens, special2idx, char2idx): 
+    pattern = f"({'|'.join(re.escape(token) for token in special_tokens)})"
+    segments = re.split(pattern, text)
+    ids = []
+    for seg in segments:
+        if not seg:  # Skip empty segments
+            continue
+        if seg in special2idx:  # Handle special tokens
+            ids.append(special2idx[seg])
+        else:  # Handle regular characters
+            ids.extend(char2idx[c] for c in seg)
+    return ids 
 
   
 class ETokenizer(Tokenizer): 
@@ -8,8 +23,10 @@ class ETokenizer(Tokenizer):
     def __init__(self, char_vocab=False):
         super().__init__(char_vocab)
         self.use_char = bool(char_vocab)
-        self.byte2idx = {b.encode("utf-8")[0]:i for i, b in self.vocab.items()}
-        
+        self.char_vocab = char_vocab
+        self.char2idx = {c:i for i, c in char_vocab.items()}
+        self.special_ids = list(self.special2idx.values())
+
     @property 
     def inverse_vocab(self): 
         return {v:k for k, v in self.vocab.items()}
@@ -24,26 +41,30 @@ class ETokenizer(Tokenizer):
             return "".join(self.vocab[idx] for idx in ids)
         text_bytes = b"".join(self.vocab[idx] for idx in ids)
         text = text_bytes.decode("utf-8", errors="replace")
-        return text
-
+        return text 
+    
     def encode(self, text):
         """ 
-        Might need to change this :: 
-        - The vocab is no longer constructued via co-occurance pattern but rather joint perplexity level 
-        - The encoding should also assume a different mechanism than checking 'co-occurance' statistics
+        Exhaustive Encoding | Byte level vocabulary base --- we need character-level vocabulary
         """
-        text_bytes = text.encode("utf-8")
-        ids = [self.byte2idx[b] for b in text_bytes]
-            
+        ids = self.encode_char(text)
+
         while len(ids) >= 2:
-            # find the pair with the lowest merge index
-            stats = get_stats(ids)
-            pair = min(stats, key=lambda p: self.merges.get(p, float("inf"))) # respect order of 'merges' (trained tokenization)
-            if pair not in self.merges:
-                break # nothing else can be merged anymore
-            # otherwise let's merge the best pair (lowest merge index)
+            # find pairs and their stats given the current ids
+            stats = get_valid_stats(ids, self.special_ids)
+            
+            # Instead of picking the minimum pair from stats, first filter out any invalid pairs.
+            valid_pairs = [p for p in stats if p in self.merges]
+            if not valid_pairs:
+                break  # no valid merge available
+            
+            # Pick the valid pair with the lowest merge index
+            pair = min(valid_pairs, key=lambda p: self.merges[p])
+            
+            # Proceed to merge the best pair (lowest merge index)
             idx = self.merges[pair]
             ids = merge(ids, pair, idx)
+            
         return ids
 
 
@@ -155,3 +176,39 @@ class ETokenizer(Tokenizer):
             return []
         # Remove tokens from vocabulary
         self.remove_tokens(tokens_to_remove)
+        
+        
+    def encode_char(self, text): 
+        return encode_char(text, self.special_tokens, self.special2idx, self.char2idx)
+    
+    def save(self, path):
+        # Convert data to JSON-serializable format
+        data = {
+            'char_vocab': {str(k): v for k, v in self.char_vocab.items()},
+            'vocab': {str(k): v for k, v in self.vocab.items()},
+            'merges': {f"{k[0]},{k[1]}": v for k, v in self.merges.items()}
+        }
+        # Save to file
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    @classmethod
+    def load(cls, path):
+        # Load from file
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Convert data back to original format
+        char_vocab = {int(k): v for k, v in data['char_vocab'].items()}
+        vocab = {int(k): v for k, v in data['vocab'].items()}
+        merges = {tuple(map(int, k.split(','))): v 
+                 for k, v in data['merges'].items()}
+        
+        # Create instance and set attributes
+        inst = cls(char_vocab)
+        inst.vocab = vocab
+        inst.merges = merges
+        return inst
+        
+        
+        
