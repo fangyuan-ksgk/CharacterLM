@@ -7,6 +7,7 @@ setup(
     install_requires=[
         "torch>=2.0.0",
         "numpy",
+        "matplotlib",
         "transformers",
         "datasets",
         "tiktoken",
