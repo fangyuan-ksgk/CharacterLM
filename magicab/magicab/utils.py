@@ -18,31 +18,39 @@ def shift_token_loss(token_loss, return_tensor=True):
     else: 
         return token_perplexity 
 
-def map_token_to_char_group(text, token_ids, decode_fn, token_groups): 
+    
+    
+def map_token_to_char_group(text, token_ids, decode_fn, token_groups, char_token_mask = None): 
     char_groups = [] 
     for token_group in token_groups: 
         start_token_position, end_token_position, group_name, group_color = token_group
-        prefix_test = decode_fn(token_ids[:start_token_position].tolist())
+        
+        if char_token_mask is not None: 
+            prefix_token_ids = token_ids[:start_token_position][char_token_mask[:start_token_position]]
+        else: 
+            prefix_token_ids = token_ids[:start_token_position]
+            
+        prefix_text = decode_fn(prefix_token_ids.tolist())
         token_text = decode_fn(token_ids[start_token_position:end_token_position].tolist())
-        start_text_position = len(prefix_test)
+        token_text = decode_fn(token_ids[start_token_position:end_token_position].tolist())
+        start_text_position = len(prefix_text)
         end_text_position = start_text_position + len(token_text)
         char_groups.append((start_text_position, end_text_position, group_name, group_color))
+        
     return char_groups
 
-def map_token_to_char_perplexity(text, token_ids, token_perplexity, decode_fn, token_mask=None, token_groups=None, mask_color='red'):
+
+def prep_char_perplexity(text, # pure text 
+                         token_ids, # can contain special tokens
+                         token_perplexity, 
+                         decode_fn, 
+                         token_mask, 
+                         token_groups, 
+                         char_token_mask,
+                         mask_color='red'):
     """
     Map token loss to character-level perplexity
     """
-    if token_ids.ndim > 1: 
-        assert token_ids.shape[0] == 1, "token_ids should be 1D tensor"
-        token_ids = token_ids[0]
-    if token_perplexity.ndim > 1: 
-        assert token_perplexity.shape[0] == 1, "token_perplexity should be 1D tensor"
-        token_perplexity = token_perplexity[0]
-    if token_mask is not None and token_mask.ndim > 1: 
-        assert token_mask.shape[0] == 1, "token_mask should be 1D tensor"
-        token_mask = token_mask[0]
-    assert isinstance(text, str), "text should be a string"
         
     char_perplexity = np.zeros(len(text))
     char_colors = ['white'] * len(text)
@@ -50,7 +58,12 @@ def map_token_to_char_perplexity(text, token_ids, token_perplexity, decode_fn, t
     curr_char_idx = 0
 
     for token_idx, token_id in enumerate(token_ids):
+        
+        if not char_token_mask[token_idx]: # skip special tokens (they are not present in text) 
+            continue 
+        
         token_text = decode_fn([token_id.item()])
+        
         token_len = len(token_text)
         
         # Assign the token's perplexity to all characters in this token
@@ -62,45 +75,45 @@ def map_token_to_char_perplexity(text, token_ids, token_perplexity, decode_fn, t
 
         curr_char_idx += token_len
         
-    if token_mask is not None and token_groups is not None:
-        char_groups = map_token_to_char_group(text, token_ids, decode_fn, token_groups)
-        return char_perplexity, char_colors, char_groups
-    elif token_mask is not None:
-        return char_perplexity, char_colors
-    else:
-        return char_perplexity
-    
-    
-def map_batch_token_to_char_perplexity(texts, token_ids, token_perplexity, decode_fn, token_mask=None, token_groups=None, mask_color='red'):
-    
-    results = []
-    batch_size = len(texts)
-    for i in range(batch_size):
-        if isinstance(token_ids, list): 
-            sample_token_ids = token_ids[i].unsqueeze(0)
-        else: 
-            sample_token_ids = token_ids[i:i+1]
-        sample_token_perplexity = token_perplexity[i]
-        sample_token_mask = token_mask[i] if token_mask is not None else None
-        sample_token_groups = token_groups[i] if token_groups is not None else None
+    char_groups = map_token_to_char_group(text, token_ids, decode_fn, token_groups, char_token_mask)
         
-        result = map_token_to_char_perplexity(
-            texts[i],
-            sample_token_ids,
-            sample_token_perplexity,
-            decode_fn,
-            token_mask=sample_token_mask,
-            token_groups=sample_token_groups,
-            mask_color=mask_color
-        )
-        results.append(result)
+    return char_perplexity, char_colors, char_groups
+
+
+def prep_char_perplexity_batch(texts, token_ids, token_perplexity, spike_token_mask, spike_token_groups, char_token_mask, decode, mask_color='red'): 
+    char_perplexity, char_colors, char_groups = [], [], []
+    for texts_, token_ids_, token_perplexity_, spike_token_mask_, spike_token_groups_, char_token_mask_ in zip(texts, token_ids, token_perplexity, spike_token_mask, spike_token_groups, char_token_mask): 
+        char_perplexity_, char_colors_, char_groups_ = prep_char_perplexity(texts_, token_ids_, token_perplexity_, decode, spike_token_mask_, spike_token_groups_, char_token_mask_, mask_color=mask_color)
+        char_perplexity.append(char_perplexity_)
+        char_colors.append(char_colors_)
+        char_groups.append(char_groups_)
+    
+    return np.stack(char_perplexity, axis=0), char_colors, char_groups 
+
+
+def get_char_perplexity(text, # pure text 
+                         token_ids, # can contain special tokens
+                         token_perplexity, 
+                         decode_fn):
         
-    # Handle different return types based on input arguments
-    if isinstance(results[0], tuple):
-        # Unzip the tuples into separate lists
-        return tuple(x if isinstance(x[0], list) else np.stack(x, axis=0) for x in zip(*results))
-    else:
-        return np.stack(results, axis=0)
+    char_perplexity = torch.zeros(len(text))
+    curr_char_idx = 0
+
+    for token_idx, token_id in enumerate(token_ids):
+        
+        token_text = decode_fn([token_id.item()])
+        token_len = len(token_text)
+        char_perplexity[curr_char_idx:curr_char_idx + token_len] = token_perplexity[token_idx]
+        curr_char_idx += token_len
+            
+    return char_perplexity
+
+def get_char_perplexity_batch(texts, token_ids, token_perplexity, decode_fn): 
+    char_perplexity = []
+    for text, token_ids_, token_perplexity_ in zip(texts, token_ids, token_perplexity): 
+        char_perplexity.append(get_char_perplexity(text, token_ids_, token_perplexity_, decode_fn))
+    return torch.stack(char_perplexity, dim=0)
+
     
 
 def get_naive_char_color(char_perplexity):
@@ -160,7 +173,7 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids):
     char_token_perplexity = [shift_token_loss(char_token_loss_row) for char_token_loss_row in char_token_loss]
     token_perplexity = shift_token_loss(token_loss)
 
-    char_perplexity = map_batch_token_to_char_perplexity(char_texts, char_token_ids, char_token_perplexity, decode) # gives error
+    char_perplexity = get_char_perplexity_batch(char_texts, char_token_ids, char_token_perplexity, decode)
 
     return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, 
             "bpc_loss": bpc_loss, "char_perplexity": char_perplexity}
@@ -179,7 +192,8 @@ def batch_inference(model, tokenizer, input_ids, target_ids):
     
     bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode)
     token_perplexity = shift_token_loss(token_loss)
-    char_perplexity = map_batch_token_to_char_perplexity(texts, token_ids, token_perplexity, decode)
+    
+    char_perplexity = get_char_perplexity_batch(texts, token_ids, token_perplexity, decode)
 
     return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, 
             "bpc_loss": bpc_loss, "char_perplexity": char_perplexity}

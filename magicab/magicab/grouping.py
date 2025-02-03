@@ -65,7 +65,7 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
     loss_threshold = torch.quantile(token_perplexity, quantile_threshold, axis=-1)
     spike_token_mask = token_perplexity > loss_threshold.unsqueeze(-1)
     base_char_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.char_vocab.keys())))
-    remove_token_mask = spike_token_mask & base_char_mask
+    remove_token_mask = spike_token_mask & ~base_char_mask
     
     if char_token_mask is not None: 
         remove_token_mask = remove_token_mask & char_token_mask
