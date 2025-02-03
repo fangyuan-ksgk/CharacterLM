@@ -8,6 +8,7 @@ data/enwiki/*
 .vscode
 __pycache__/
 *.bin
+*.egg-info
 *.pkl
 *.pt
 *.pyc
