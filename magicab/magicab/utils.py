@@ -71,17 +71,16 @@ def map_token_to_char_perplexity(text, token_ids, token_perplexity, decode_fn, t
         return char_perplexity
     
     
-    
-    
 def map_batch_token_to_char_perplexity(texts, token_ids, token_perplexity, decode_fn, token_mask=None, token_groups=None, mask_color='red'):
     
     results = []
     batch_size = len(texts)
     for i in range(batch_size):
-        sample_token_ids = token_ids[i:i+1]
-
-        sample_token_perplexity = token_perplexity[i] if hasattr(token_perplexity, 'ndim') and token_perplexity.ndim > 1 else token_perplexity
-        
+        if isinstance(token_ids, list): 
+            sample_token_ids = token_ids[i].unsqueeze(0)
+        else: 
+            sample_token_ids = token_ids[i:i+1]
+        sample_token_perplexity = token_perplexity[i]
         sample_token_mask = token_mask[i] if token_mask is not None else None
         sample_token_groups = token_groups[i] if token_groups is not None else None
         
@@ -102,6 +101,7 @@ def map_batch_token_to_char_perplexity(texts, token_ids, token_perplexity, decod
         return tuple(x if isinstance(x[0], list) else np.stack(x, axis=0) for x in zip(*results))
     else:
         return np.stack(results, axis=0)
+    
 
 def get_naive_char_color(char_perplexity):
     p80 = np.quantile(char_perplexity, 0.80)
@@ -116,7 +116,12 @@ def get_naive_char_color(char_perplexity):
     return char_colors
 
 
-def calculate_bits_per_char(token_loss, target_ids, decode_fn):
+def calculate_bits_per_char(token_loss, target_ids, decode_fn, special_token_mask=None):
+    
+    if special_token_mask is not None: 
+        token_loss = token_loss[special_token_mask]
+        target_ids = target_ids[special_token_mask]
+    
     bits_per_token = token_loss * math.log2(math.e)
     
     token_ids_flat = target_ids.reshape(-1).tolist()
@@ -133,10 +138,38 @@ def calculate_bits_per_char(token_loss, target_ids, decode_fn):
     return bits_per_char
 
 
+def _pad_batch_inference(model, tokenizer, input_ids, target_ids): 
+    """ 
+    Helper function to pad batch inference
+    """
+    decode = lambda x: tokenizer.decode(x)
+
+    token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
+    special_token_mask = token_ids.ne(tokenizer.special2idx["<pad>"])
+
+    char_token_ids = [token_ids_row[special_token_mask_row] for token_ids_row, special_token_mask_row in zip(token_ids, special_token_mask)]
+    char_texts = [decode(char_token_ids_row.tolist()) for char_token_ids_row in char_token_ids]
+
+    logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
+    token_loss = token_loss * special_token_mask[:, 1:] # zero-out loss for pad tokens
+
+    # # These functional need to take care of 'special tokens' -- it need to remove those, especially 'decode' tokens
+    bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode, special_token_mask[:, 1:])
+
+    char_token_loss = [token_loss_row[special_token_mask_row[1:]] for token_loss_row, special_token_mask_row in zip(token_loss, special_token_mask)]
+    char_token_perplexity = [shift_token_loss(char_token_loss_row) for char_token_loss_row in char_token_loss]
+    token_perplexity = shift_token_loss(token_loss)
+
+    char_perplexity = map_batch_token_to_char_perplexity(char_texts, char_token_ids, char_token_perplexity, decode) # gives error
+
+    return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, 
+            "bpc_loss": bpc_loss, "char_perplexity": char_perplexity}
+
 def batch_inference(model, tokenizer, input_ids, target_ids): 
     """ 
     Miscellaneous results from model inference
     """
+    
     decode = lambda x: tokenizer.decode(x)
 
     token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
@@ -156,7 +189,7 @@ def inference(model, tokenizer,
               text = None, 
               input_ids = None, 
               target_ids = None,
-              pad = False):
+              pad: bool = False):
     
     valid_text = text is not None and (isinstance(text, str) or isinstance(text, list))
     valid_batch = (input_ids is not None and target_ids is not None) and (input_ids.shape == target_ids.shape)
@@ -177,7 +210,10 @@ def inference(model, tokenizer,
         input_ids = token_ids[:, :-1]
         target_ids = token_ids[:, 1:]
     
-    res = batch_inference(model, tokenizer, input_ids, target_ids)
+    if pad: 
+        res = _pad_batch_inference(model, tokenizer, input_ids, target_ids)
+    else: 
+        res = batch_inference(model, tokenizer, input_ids, target_ids)
     
     if valid_text: 
         res['texts'] = texts

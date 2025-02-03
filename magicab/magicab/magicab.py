@@ -22,13 +22,13 @@ class Magicab:
         self.log_dir = os.path.join(checkpoint_dir, "log")
         os.makedirs(self.log_dir, exist_ok=True)
         
-    def inference(self, text = None, input_ids = None, target_ids = None): 
-        return inference(self.model, self.tokenizer, text, input_ids, target_ids)
+    def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False): 
+        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad)
         
-    def update_vocabulary(self, text = None, input_ids = None, target_ids = None):
+    def update_vocabulary(self, text = None, input_ids = None, target_ids = None, pad: bool = False):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
         
-        res = self.inference(text, input_ids, target_ids)
+        res = self.inference(text, input_ids, target_ids, pad)
         input_ids, token_ids, token_perplexity = res['input_ids'], res['token_ids'], res['token_perplexity']
         
         tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups = self._detect_remove_tokens(token_ids, token_perplexity)      
@@ -147,3 +147,22 @@ class Magicab:
         """Updates the language model output layer using end-of-merge tokens"""
         temp_lm_head = add_token_lm_head(self.model.lm_head, init_indices=eom_tokens)
         return remove_token_lm_head(temp_lm_head, tokens_to_remove)  
+    
+    
+    def sanity_check(self):
+        """Performs sanity checks on vocabulary sizes across tokenizer and model components"""
+        tokenizer_size_match = (len(self.tokenizer.merges) + 
+                              len(self.tokenizer.char_vocab) + 
+                              len(self.tokenizer.special_ids) == len(self.tokenizer.vocab))
+        
+        print("Tokenizer vocab_size matching:", tokenizer_size_match)
+        print("Tokenizer vocab_size:", len(self.tokenizer.vocab))
+        print("LM Head vocab_size:", self.model.lm_head.weight.shape[0])
+        print("WTE vocab_size:", self.model.transformer.wte.weight.shape[0])
+        
+        all_sizes_match = (self.model.transformer.wte.weight.shape[0] == 
+                          self.model.lm_head.weight.shape[0] == 
+                          len(self.tokenizer.vocab))
+        print("ALL Vocab Size Matching Sanity Check:", all_sizes_match)
+        
+        return tokenizer_size_match and all_sizes_match

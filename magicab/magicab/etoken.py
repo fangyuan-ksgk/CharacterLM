@@ -22,6 +22,7 @@ class ETokenizer(Tokenizer):
     """
     def __init__(self, char_vocab=False):
         super().__init__(char_vocab)
+        
         self.use_char = bool(char_vocab)
         self.char_vocab = char_vocab
         self.char2idx = {c:i for i, c in char_vocab.items()}
