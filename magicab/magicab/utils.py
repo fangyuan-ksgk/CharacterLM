@@ -200,7 +200,9 @@ def inference(model, tokenizer,
         token_ids_list = [torch.tensor(tokenizer.encode(t), dtype=torch.long) for t in texts]
         
         max_token_len = max([token_ids.shape[0] for token_ids in token_ids_list])
-        assert pad or all([token_ids.shape[0] == max_token_len for token_ids in token_ids_list]), "All token ids must be of the same length, or we need to pad them"
+        if not all([token_ids.shape[0] == max_token_len for token_ids in token_ids_list]): 
+            pad = True
+            
         if pad: 
             pad_token_id = tokenizer.special2idx["<pad>"]
             token_ids_list = [F.pad(token_ids, pad=(max_token_len - token_ids.shape[0], 0), mode='constant', value=pad_token_id) for token_ids in token_ids_list]
@@ -217,6 +219,7 @@ def inference(model, tokenizer,
     
     if valid_text: 
         res['texts'] = texts
+        res["char_token_mask"] = ~torch.isin(token_ids, torch.tensor(tokenizer.special_ids)) # character & merge tokens
         
     return res
 
