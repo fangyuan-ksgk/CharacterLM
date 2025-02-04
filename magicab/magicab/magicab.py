@@ -7,9 +7,7 @@ from .utils import calculate_bits_per_char, shift_token_loss, short_one, inferen
 from .vis import visualize_text_multiline
 from .grouping import detect_spike_token_batch, detect_remove_token_batch, detect_group_token_batch
 from .utils import prep_char_perplexity_batch, get_char_perplexity_batch
-from .vocab_update import _prep_vocabulary_change
-from .vocab_update import add_token_wte, remove_token_wte, add_token_lm_head, remove_token_lm_head
-
+from .vocab_update import _cache_vocabulary_change, add_to_vocab, remove_from_vocab
 
 class Magicab:
     """Manages joint updates to both model vocabulary and tokenizer vocabulary"""
@@ -26,52 +24,23 @@ class Magicab:
         os.makedirs(self.log_dir, exist_ok=True)
         
     def reset_update_info(self): 
-        self.wte_addition = {}
-        self.head_addition = {}
+        self.embed_cache = {}
+        self.project_cache = {}
         self.token_addition = {}
         self.token_removal = {}
+        self.tokenizer_copy = self.tokenizer.copy()
         
     def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False): 
         return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad)
     
-    def prepare_vocabulary_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False):         
-        _prep_vocabulary_change(self, text, input_ids, target_ids)
+    def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False):         
+        _cache_vocabulary_change(self, text, input_ids, target_ids)
         
-    def update_vocabulary(self, text = None, input_ids = None, target_ids = None, pad: bool = False):
+    def update_vocab(self):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
-        
-        
-        
-        self.tokenizer.remove_tokens(tokens_to_remove_row)
-
-        eom_tokens, eom_positions = self.tokenizer.add_tokens(
-            tokens_to_group_row, 
-            group_positions=group_token_positions_row,
-            return_eom=True
-        )
-        
-    
-        representations = self.model.get_representation(input_ids_row) 
-        eom_input_positions = short_one(eom_positions)
-        group_token_embeddings = representations[-1][0, eom_input_positions]
-        
-        new_wte = self._update_word_embeddings(
-            tokens_to_remove=tokens_to_remove_row,
-            tokens_to_add=group_token_embeddings
-        )
-        
-        new_lm_head = self._update_language_model_head(
-            tokens_to_remove=tokens_to_remove_row,
-            eom_tokens=eom_tokens
-        )
-
-        raise NotImplementedError("Not implemented")
-
-
-        self.model.transformer.wte = new_wte
-        self.model.lm_head = new_lm_head
-        
-        return self.model, self.tokenizer
+        add_to_vocab(self)
+        remove_from_vocab(self)
+        self.reset_update_info()
 
     def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo"): 
         
@@ -95,7 +64,7 @@ class Magicab:
             
         # (b). Remove token visualization 
         remove_color = 'orange'
-        remove_token_indices, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, color=remove_color, char_token_mask=char_token_mask)
+        tokens_to_remove, remove_token_indices, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, color=remove_color, char_token_mask=char_token_mask)
         char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, remove_token_mask, remove_token_groups, char_token_mask, decode, mask_color=remove_color)
 
         file_name = "remove"
@@ -123,17 +92,13 @@ class Magicab:
         
     def _detect_remove_tokens(self, token_ids, token_perplexity, char_token_mask):
         """Identifies tokens with unusually high perplexity"""
-        remove_token_positions, remove_token_mask, remove_token_groups =  detect_remove_token_batch(
+        tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups =  detect_remove_token_batch(
             token_ids, 
             token_perplexity,
             self.tokenizer,
             quantile_threshold=self.spike_quantile_threshold,
             char_token_mask=char_token_mask
         )
-        
-        tokens_to_remove = []
-        for remove_token_mask_row, token_ids_row in zip(remove_token_mask, token_ids): 
-            tokens_to_remove.append(token_ids_row[remove_token_mask_row])
             
         return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
 
@@ -179,7 +144,9 @@ class Magicab:
         char_token_mask = res['char_token_mask']
         
         # Attentoin: we obtain 'token positions' not token ids for spike, remove and group tokens (!)
-
+        for row_idx in range(len(texts)): 
+            self.tokenizer.sanity_check(texts[row_idx])
+        print(":: Tokenizer encode & decode equivalaence check passed")
         
         # spike
         spike_color = 'pink'
@@ -195,10 +162,11 @@ class Magicab:
 
         # remove 
         remove_color = 'orange'
-        remove_token_positions, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, color=remove_color, char_token_mask=char_token_mask)
+        tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, color=remove_color, char_token_mask=char_token_mask)
         
         char_ids = torch.tensor(list(self.tokenizer.char_vocab.keys()))
         base_char_mask = torch.isin(token_ids, char_ids)
+        leaf_token_mask = torch.isin(token_ids, torch.tensor(list(self.tokenizer.leaf_token_ids)))
         
         for (tokens, remove_mask, base_mask, char_mask, token_loss) in zip(token_ids,
                                                                    remove_token_mask, 
@@ -210,6 +178,10 @@ class Magicab:
             assert (base_mask & remove_mask).any().item() == False, "base character tokens are removed"
             assert (remove_mask & ~char_mask).any().item() == False, "special tokens are removed"
             assert remove_mask.max() < len(token_id), "remove token position is out of bound"
+            for row_idx in range(len(tokens_to_remove)): 
+                assert all([i in self.tokenizer.leaf_token_ids for i in tokens_to_remove[row_idx]]), "leaf tokens are removed"            
+            assert all([i in self.tokenizer.leaf_token_ids for i in self.token_removal]), "leaf tokens are removed"
+
         print(":: Remove Token Sanity Check Passed")
                 
 

@@ -1,5 +1,6 @@
-from .base_tok import * 
-import json 
+from .base_tok import get_valid_stats, merge, Tokenizer
+from .base_tok import _remove_tokens 
+import json, re
 
 
 def encode_char(text, special_tokens, special2idx, char2idx): 
@@ -35,6 +36,20 @@ class ETokenizer(Tokenizer):
     @property 
     def vocab_size(self): 
         return len(self.vocab)
+    
+    @property 
+    def leaf_merges(self): 
+        # 1. can't be in char_vocab
+        # 2. should have no dependent tokens
+        leaf_merges = {} 
+        for k, v in self.merges.items(): 
+            if all(v not in pair for pair in self.merges.keys() if pair != k):
+                leaf_merges[k] = v 
+        return leaf_merges
+    
+    @property 
+    def leaf_token_ids(self): 
+        return list(self.leaf_merges.values())
 
     def decode(self, ids):
         # given ids (list of integers), return Python string
@@ -67,9 +82,9 @@ class ETokenizer(Tokenizer):
             ids = merge(ids, pair, idx)
             
         return ids
+            
 
-
-    def add_tokens(self, tokens_to_group, group_positions=None, return_eom=False):
+    def add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
         """
         Add new tokens by grouping existing tokens together
         tokens_to_group[idx] = [token_1, token_2, ..., token_n]
@@ -78,9 +93,14 @@ class ETokenizer(Tokenizer):
         - return end-of-merge token idx for wte/lm-head update (for each merges)
         - need to return group_idx & eom_position for initializing wte ...
         """
+        from copy import deepcopy
+        if not in_place: 
+            orig_vocab = deepcopy(self.vocab)
+            orig_merges = deepcopy(self.merges)
+            
         eom_tokens = [] 
-        group_indices = []
-        in_group_positions = []
+        pair_token_groups = []
+        pair_token_positions = []
         
         for group_idx, token_group in enumerate(tokens_to_group):
 
@@ -109,11 +129,16 @@ class ETokenizer(Tokenizer):
                 else:
                     new_idx = max(self.vocab.keys()) + 1  # maximum token idx plus one | assume consecutive token ids
                     self.vocab[new_idx] = new_token
-                    self.merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx                    
+                    self.merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx 
+                    if in_place:                    
+                        print(f" :: Add new token {new_token}  Id: {new_idx}")
                     prefix_token_idx = new_idx
+                    
                     eom_tokens.append(curr_token_idx) # end-of-merge token idx
-                    group_indices.append(group_idx)
-                    in_group_positions.append(r)
+                    pair_token_groups.append(tuple([prefix_token_idx, curr_token_idx]))
+                    
+                    if group_positions is not None:
+                        pair_token_positions.append(tuple([group_positions[group_idx][l], group_positions[group_idx][r]]))
                     
                 # update pointers 
                 l += 1
@@ -122,11 +147,19 @@ class ETokenizer(Tokenizer):
                 # update prefix token
                 prefix_token = new_token
                 
-        if return_eom and group_positions is not None:
-            eom_positions = [group_positions[group_idx][in_group_position] for in_group_position, group_idx in zip(in_group_positions, group_indices)]
-            return eom_tokens, eom_positions
-        elif return_eom and group_positions is None:
-            return eom_tokens
+        if not in_place: 
+            self.vocab = orig_vocab
+            self.merges = orig_merges
+        
+        # in-place change on tokenizer should be avoided
+        # eom_tokens : list of end-of-merge token indices
+        # pair_token_groups : list of pairs of token indices
+        # pair_token_positions : list of positions of pairs of tokens
+        if group_positions is not None:
+            return eom_tokens, pair_token_groups, pair_token_positions
+        else:
+            return eom_tokens, pair_token_groups
+        
         
     def identify_splittable_tokens(self, tokens_to_split): 
         
@@ -144,28 +177,17 @@ class ETokenizer(Tokenizer):
                           if idx != token_id}
         return tokens_removed
     
-    def remove_tokens(self, tokens_to_remove): 
-        # Create a new vocabulary with consecutive indices
-        old_to_new = {}
-        new_vocab = {}
-        next_idx = 0
+    def remove_tokens(self, tokens_to_remove, in_place=True): 
         
-        # Sort keys to ensure deterministic remapping
-        for old_idx in sorted(self.vocab.keys()):
-            new_vocab[next_idx] = self.vocab[old_idx]
-            old_to_new[old_idx] = next_idx
-            next_idx += 1
+        new_vocab, new_merges = _remove_tokens(self, tokens_to_remove)
         
-        # Update merges with new token indices
-        new_merges = {}
-        for (t1, t2), idx in self.merges.items():
-            if idx not in tokens_to_remove:
-                new_merges[(old_to_new.get(t1, t1), old_to_new.get(t2, t2))] = old_to_new[idx]
+        if in_place: 
+            self.vocab = new_vocab
+            self.merges = new_merges
+        else: 
+            return new_vocab, new_merges
         
-        self.vocab = new_vocab
-        self.merges = new_merges
-                
-    
+                 
     def split_tokens(self, tokens_to_split):
         """
         Remove tokens from vocabulary if their byte length is > 1
@@ -210,6 +232,14 @@ class ETokenizer(Tokenizer):
         inst.vocab = vocab
         inst.merges = merges
         return inst
+    
+    def sanity_check(self, text = "Hello, world!"):
+        assert self.decode(self.encode(text)) == text, "encode & decode mismatch"
         
         
-        
+    def copy(self):
+        from copy import deepcopy
+        c = ETokenizer(deepcopy(self.char_vocab))
+        c.vocab = deepcopy(self.vocab)
+        c.merges = deepcopy(self.merges)
+        return c

@@ -65,12 +65,17 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
     loss_threshold = torch.quantile(token_perplexity, quantile_threshold, axis=-1)
     spike_token_mask = token_perplexity > loss_threshold.unsqueeze(-1)
     base_char_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.char_vocab.keys())))
-    remove_token_mask = spike_token_mask & ~base_char_mask
+    leaf_token_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.leaf_token_ids)))
+    remove_token_mask = spike_token_mask & ~base_char_mask & leaf_token_mask # only remove leaf-tokens to avoid collapsing tokenization
     
     if char_token_mask is not None: 
-        remove_token_mask = remove_token_mask & char_token_mask
+        remove_token_mask = remove_token_mask & char_token_mask & leaf_token_mask
     
     remove_token_positions = [torch.nonzero(row)[:, 0] for row in remove_token_mask]
+    
+    tokens_to_remove = [] 
+    for remove_token_mask_row, token_ids_row in zip(remove_token_mask, token_ids): 
+        tokens_to_remove.append(token_ids_row[remove_token_mask_row])
     
     if return_groups: 
         remove_token_groups = []
@@ -81,9 +86,9 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
                 remove_token_groups_row.append(curr_group)
             remove_token_groups.append(remove_token_groups_row)
     
-        return remove_token_positions, remove_token_mask, remove_token_groups
+        return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
     
-    return remove_token_positions, remove_token_mask
+    return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
 
 
 def _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=0.80): 

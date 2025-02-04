@@ -6,6 +6,8 @@ e.g. isolating all regex/pattern parts to the RegexTokenizer, but
 some concessions are made for simplicity.
 """
 import unicodedata
+from copy import deepcopy 
+
 
 # -----------------------------------------------------------------------------
 # a few helper functions useful for both BasicTokenizer and RegexTokenizer
@@ -70,6 +72,29 @@ def render_token(t: bytes) -> str:
     s = t.decode('utf-8', errors='replace')
     s = replace_control_characters(s)
     return s
+
+def _remove_tokens(tokenizer, tokens_to_remove): 
+    
+    tmp_vocab = deepcopy(tokenizer.vocab)
+    tmp_merges = deepcopy(tokenizer.merges)
+    idx2pair = {k:v for (v, k) in tmp_merges.items()}
+
+    # remove tokens 
+    for token_id in tokens_to_remove: 
+        print(f":: Removing token {tmp_vocab[token_id]} Id: {token_id}, splitting into sub-token pairs: {idx2pair[token_id]}")
+        del tmp_vocab[token_id]
+        del tmp_merges[idx2pair[token_id]]
+
+    # re-map token idx 
+    idx_map = {} 
+    for new_idx, old_idx in enumerate(tmp_vocab.keys()):
+        idx_map[old_idx] = new_idx
+        
+    # new vocab & merges | remark: update token tuple indices in merges
+    new_vocab = {idx_map[v]: k for v, k in tmp_vocab.items()}
+    new_merges = {tuple([idx_map[id_tuple[0]], idx_map[id_tuple[1]]]): idx_map[k] for id_tuple, k in tmp_merges.items()}
+    
+    return new_vocab, new_merges
 
 # -----------------------------------------------------------------------------
 # the base Tokenizer class
