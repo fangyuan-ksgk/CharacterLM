@@ -59,7 +59,8 @@ class Magicab:
         file_name = "spike"
 
         for text, char_color, group in zip(texts, char_colors, char_groups): 
-            visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Spiking Token', output_path=os.path.join(self.log_dir, f"{file_name}_spike_{text}.png"))
+            text_str = text.replace(" ", "")[:15]
+            visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Spiking Token', output_path=os.path.join(self.log_dir, f"{file_name}_spike_{text_str}.png"))
             
             
         # (b). Remove token visualization 
@@ -69,7 +70,8 @@ class Magicab:
 
         file_name = "remove"
         for text, char_color, group in zip(texts, char_colors, char_groups): 
-            visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Remove Token', output_path=os.path.join(self.log_dir, f"{file_name}_remove_{text}.png"))
+            text_str = text.replace(" ", "")[:15]
+            visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Remove Token', output_path=os.path.join(self.log_dir, f"{file_name}_remove_{text_str}.png"))
             
             
         # (c). Group token visualization 
@@ -79,7 +81,8 @@ class Magicab:
 
         file_name = "group"
         for text, char_color, group in zip(texts, char_colors, char_groups): 
-            visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Group Token', output_path=os.path.join(self.log_dir, f"{file_name}_group_{text}.png"))
+            text_str = text.replace(" ", "")[:15]
+            visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Group Token', output_path=os.path.join(self.log_dir, f"{file_name}_group_{text_str}.png"))
             
     def _detect_spike_tokens(self, token_ids, token_perplexity, char_token_mask):
         """Identifies tokens with unusually high perplexity"""
