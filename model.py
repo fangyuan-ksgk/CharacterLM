@@ -167,7 +167,7 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None, reduction='mean'):
+    def forward(self, idx, targets=None, reduction='mean', return_representation: bool = False):
         device = idx.device
         b, t = idx.size()
         assert t <= self.config.block_size, f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
@@ -192,26 +192,10 @@ class GPT(nn.Module):
             logits = self.lm_head(x[:, [-1], :]) # note: using list [-1] to preserve the time dim
             loss = None
 
-        return logits, loss
-    
-    def get_representation(self, idx): 
-        device = idx.device
-        b, t = idx.size()
-        assert t <= self.config.block_size, f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
-        pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
-        
-        representation = []
-        # forward GPT model 
-        tok_emb = self.transformer.wte(idx)
-        pos_emb = self.transformer.wpe(pos)
-        x = self.transformer.drop(tok_emb + pos_emb)
-        representation.append(x.detach().cpu())
-        for block in self.transformer.h:
-            x = block(x)
-            representation.append(x.detach().cpu())
-        x = self.transformer.ln_f(x)
-        representation.append(x.detach().cpu())
-        return representation
+        if return_representation: 
+            return logits, loss, x
+        else: 
+            return logits, loss
         
 
     def crop_block_size(self, block_size):

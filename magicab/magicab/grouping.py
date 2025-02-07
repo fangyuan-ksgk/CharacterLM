@@ -175,19 +175,25 @@ def get_group_token_mask(token_loss, quantile_threshold=0.7, color='green', char
     return group_token_positions, group_token_mask, groups
 
 
-def detect_group_token_batch(token_ids, token_perplexity, quantile_threshold=0.7, color='green', char_token_mask=None): 
+def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, color='green', char_token_mask=None): 
     """ 
     Detect group token in batch data 
     """
     if token_perplexity.ndim == 1: 
         token_perplexity = token_perplexity.unsqueeze(0)
+    
+    cached_tuples = torch.tensor(list(cache_token_addition.keys()))
         
     tokens_to_group = []
     group_token_positions = []
     group_token_masks = []
     groups = []
-    for token_ids_row, token_perp, char_token_mask_row in zip(token_ids, token_perplexity, char_token_mask): 
-        group_token_positions_row, group_token_masks_row, group_row = get_group_token_mask(token_loss=token_perp, quantile_threshold=quantile_threshold, color=color, char_token_mask=char_token_mask_row)
+    for token_ids_row, token_perp, char_token_mask_row in zip(token_ids, token_perplexity, char_token_mask):
+        non_cache_mask = ~torch.isin(token_ids_row, cached_tuples)
+        group_token_positions_row, group_token_masks_row, group_row = get_group_token_mask(token_loss=token_perp, 
+                                                                                           quantile_threshold=quantile_threshold, 
+                                                                                           color=color, 
+                                                                                           char_token_mask=char_token_mask_row & non_cache_mask)
         
         group_token_positions.append(group_token_positions_row)
         group_token_masks.append(group_token_masks_row)

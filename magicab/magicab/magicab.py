@@ -36,8 +36,8 @@ class Magicab:
         # dynamic filter to remove non-leaf tokens
         return {k:v for k, v in self._token_removal.items() if k in self.tokenizer.leaf_token_ids}
         
-    def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False): 
-        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad)
+    def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False, return_representation: bool = False): 
+        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation)
     
     def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False):         
         _cache_vocabulary_change(self, text, input_ids, target_ids)
@@ -116,8 +116,9 @@ class Magicab:
         return detect_group_token_batch(
             token_ids, 
             token_perplexity, 
+            cache_addition = self.token_addition,
             quantile_threshold=self.group_quantile_threshold,
-            char_token_mask=char_token_mask
+            char_token_mask=char_token_mask 
         )
 
     def _update_word_embeddings(self, tokens_to_remove, tokens_to_add):

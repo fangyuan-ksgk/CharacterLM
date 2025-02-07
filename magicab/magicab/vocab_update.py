@@ -38,17 +38,17 @@ def timing_decorator(func):
     return wrapper
 
 @timing_decorator
-def _prep_vocabulary_addition(self, input_ids, tokens_to_group, group_token_positions):
+def _prep_vocabulary_addition(self, input_ids, tokens_to_group, group_token_positions, reps):
+    """ 
+    This ignores cached merges in magicab and re-process everything, redundant
+    - should add a filter gadget to skip already processed tokens
+    - (modified on model.py | use representations from one forward pass)
+    """
     
     # Vocabulary Addition
     embed_cache = {} # key: token ids  values: tensor of embedding vectors 
     project_cache = {} # key: token ids  values: tensor of projection vectors 
     token_addition = defaultdict(int) # key: tuple of group token ids : counts of group tokens 
-
-    # Representations to initialize wte embedding 
-    full_reps = self.model.get_representation(input_ids)
-    rep_layer_idx = -1 
-    reps = full_reps[rep_layer_idx]
     
     for row_idx in range(len(input_ids)):
         input_ids_row = input_ids[row_idx]
@@ -91,10 +91,10 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None):
     
     t0 = time.time()
     # Get all required data in one inference pass
-    res = self.inference(text=texts, input_ids=input_ids, target_ids=target_ids)
-    input_ids, token_ids, token_perplexity, char_token_mask = (
+    res = self.inference(text=texts, input_ids=input_ids, target_ids=target_ids, return_representation=True)
+    input_ids, token_ids, token_perplexity, char_token_mask, reps = (
         res['input_ids'], res['token_ids'], 
-        res['token_perplexity'], res['char_token_mask']
+        res['token_perplexity'], res['char_token_mask'], res['reps']
     )
     print(f"Inference took: {time.time() - t0:.4f} seconds")
 
@@ -108,15 +108,15 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None):
     t2 = time.time()
     tokens_to_group, group_masks, token_groups, group_positions = self._detect_group_tokens(
         token_ids, token_perplexity, char_token_mask
-    )
+    ) # consider duplicate here
     print(f"Group token detection took: {time.time() - t2:.4f} seconds")
 
     t3 = time.time()
     # Process vocabulary additions
     token_addition, embed_cache, project_cache = _prep_vocabulary_addition(
-        self, input_ids, tokens_to_group, group_positions
+        self, input_ids, tokens_to_group, group_positions, reps
     )
-    print(f"Vocabulary addition prep took: {time.time() - t3:.4f} seconds")
+    print(f"Vocabulary addition (inference required) prep took: {time.time() - t3:.4f} seconds")
 
     t4 = time.time()
     # Filter tokens efficiently using sets
