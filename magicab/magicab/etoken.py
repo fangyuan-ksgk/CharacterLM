@@ -3,7 +3,7 @@ from .base_tok import _remove_tokens
 import json, re
 from tqdm import tqdm  # Add this import at the top of the file
 from rust_tokenizer import PyETokenizer
-
+from copy import deepcopy
 
 def encode_char(text, special_tokens, special2idx, char2idx): 
     pattern = f"({'|'.join(re.escape(token) for token in special_tokens)})"
@@ -102,29 +102,17 @@ class ETokenizer(Tokenizer):
 
         return self._encode(ids)
             
-
-    def add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
-        """
-        Add new tokens by grouping existing tokens together
-        tokens_to_group[idx] = [token_1, token_2, ..., token_n]
-        - progressively combine 2 tokens at a time (1-2, 12-3, 123-4, ...)
-        - check for pre-existing merges when adding new tokens
-        - return end-of-merge token idx for wte/lm-head update (for each merges)
-        - need to return group_idx & eom_position for initializing wte ...
-        """
-        from copy import deepcopy
-        if not in_place: 
-            orig_vocab = deepcopy(self.vocab)
-            orig_merges = deepcopy(self.merges)
             
+    def _add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
+        
+        vocab = deepcopy(self.vocab)
+        merges = deepcopy(self.merges)
+        
         eom_tokens = [] 
         pair_token_groups = []
         pair_token_positions = []
         
-        for group_idx, token_group in enumerate(tokens_to_group):
-
-            if not all(t in self.vocab for t in token_group):
-                raise ValueError(f"All tokens in group must exist in vocabulary: {token_group}")
+        for group_idx, token_group in enumerate(tokens_to_group): 
             
             if len(token_group) == 1:
                 continue
@@ -133,24 +121,25 @@ class ETokenizer(Tokenizer):
             length = len(token_group) - 1
             l, r = 0, 1
             prefix_token_idx = token_group[l]
-            prefix_token = self.vocab[prefix_token_idx]
+            prefix_token = vocab[prefix_token_idx]
             
             while l < r: 
                 
                 curr_token_idx = token_group[r]                
-                curr_token = self.vocab[curr_token_idx]
+                curr_token = vocab[curr_token_idx]
                 
                 new_token = prefix_token + curr_token
                 
-                if new_token in self.inverse_vocab:
-                    prefix_token_idx = self.inverse_vocab[new_token]
-                    
+                if new_token in vocab.keys():
+                    prefix_token_idx = vocab[new_token]
                 else:
-                    new_idx = max(self.vocab.keys()) + 1  # maximum token idx plus one | assume consecutive token ids
-                    self.vocab[new_idx] = new_token
-                    self.merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx 
+                    new_idx = max(vocab.keys()) + 1  # maximum token idx plus one | assume consecutive token ids
+                    vocab[new_idx] = new_token
+                    merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx 
+                    
                     if in_place:                    
                         print(f" :: Add new token {new_token}  Id: {new_idx}")
+                        
                     prefix_token_idx = new_idx
                     
                     eom_tokens.append(curr_token_idx) # end-of-merge token idx
@@ -166,14 +155,17 @@ class ETokenizer(Tokenizer):
                 # update prefix token
                 prefix_token = new_token
                 
-        if not in_place: 
-            self.vocab = orig_vocab
-            self.merges = orig_merges
+        return vocab, merges, eom_tokens, pair_token_groups, pair_token_positions
         
-        # in-place change on tokenizer should be avoided
-        # eom_tokens : list of end-of-merge token indices
-        # pair_token_groups : list of pairs of token indices
-        # pair_token_positions : list of positions of pairs of tokens
+
+    def add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
+     
+        vocab, merges, eom_tokens, pair_token_groups, pair_token_positions = self._add_tokens(tokens_to_group, group_positions, in_place)
+                
+        if in_place: 
+            self.vocab = vocab
+            self.merges = merges
+        
         if group_positions is not None:
             return eom_tokens, pair_token_groups, pair_token_positions
         else:

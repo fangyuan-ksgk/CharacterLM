@@ -1,6 +1,8 @@
 from collections import defaultdict
 from typing import Optional
 import torch
+import time
+from functools import wraps
 
 def run_avg_dict_update(d, key, new_value): 
     if key not in d: 
@@ -25,7 +27,17 @@ def add_dict_merge(d1, d2):
             d1[key] += d2[key]
     return d1
 
+def timing_decorator(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Function {func.__name__} took {end_time - start_time:.4f} seconds")
+        return result
+    return wrapper
 
+@timing_decorator
 def _prep_vocabulary_addition(self, input_ids, tokens_to_group, group_token_positions):
     
     # Vocabulary Addition
@@ -73,30 +85,56 @@ def _prep_vocabulary_removal(tokens_to_remove):
     return token_removal
 
 
-def _cache_vocabulary_change(self, texts = None, input_ids = None, target_ids = None): 
+@timing_decorator
+def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None):
     """Prepares vocabulary change for text batch"""
     
-    res = self.inference(text = texts, input_ids = input_ids, target_ids = target_ids)
-    input_ids, token_ids, token_perplexity, char_token_mask = res['input_ids'], res['token_ids'], res['token_perplexity'], res['char_token_mask']
+    t0 = time.time()
+    # Get all required data in one inference pass
+    res = self.inference(text=texts, input_ids=input_ids, target_ids=target_ids)
+    input_ids, token_ids, token_perplexity, char_token_mask = (
+        res['input_ids'], res['token_ids'], 
+        res['token_perplexity'], res['char_token_mask']
+    )
+    print(f"Inference took: {time.time() - t0:.4f} seconds")
 
-    tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups = self._detect_remove_tokens(token_ids, token_perplexity, char_token_mask)      
-    tokens_to_group, group_token_masks, token_groups, group_token_positions = self._detect_group_tokens(token_ids, token_perplexity, char_token_mask)
-
-    token_addition, embed_cache, project_cache = _prep_vocabulary_addition(self, input_ids, tokens_to_group, group_token_positions)
-
-    # filter tokens_to_remove with leaf_token_ids from tokenizer_copy 
-    filtered_tokens_to_remove = []
-    for tokens_to_remove_row in tokens_to_remove: 
-        filtered_tokens_to_remove.append([i for i in tokens_to_remove_row if i in self.tokenizer_copy.leaf_token_ids])        
+    t1 = time.time()
+    # Process removals and groupings in parallel if possible
+    tokens_to_remove, remove_positions, remove_mask, remove_groups = self._detect_remove_tokens(
+        token_ids, token_perplexity, char_token_mask
+    )
+    print(f"Remove token detection took: {time.time() - t1:.4f} seconds")
     
+    t2 = time.time()
+    tokens_to_group, group_masks, token_groups, group_positions = self._detect_group_tokens(
+        token_ids, token_perplexity, char_token_mask
+    )
+    print(f"Group token detection took: {time.time() - t2:.4f} seconds")
+
+    t3 = time.time()
+    # Process vocabulary additions
+    token_addition, embed_cache, project_cache = _prep_vocabulary_addition(
+        self, input_ids, tokens_to_group, group_positions
+    )
+    print(f"Vocabulary addition prep took: {time.time() - t3:.4f} seconds")
+
+    t4 = time.time()
+    # Filter tokens efficiently using sets
+    leaf_token_set = set(self.tokenizer_copy.leaf_token_ids)
+    filtered_tokens_to_remove = [
+        [i for i in row if i in leaf_token_set] 
+        for row in tokens_to_remove
+    ]
     token_removal = _prep_vocabulary_removal(filtered_tokens_to_remove)
+    print(f"Token removal prep took: {time.time() - t4:.4f} seconds")
     
+    t5 = time.time()
+    # Update caches efficiently using dict operations
     self.embed_cache = run_avg_dict_merge(self.embed_cache, embed_cache)
     self.project_cache = run_avg_dict_merge(self.project_cache, project_cache)
     self.token_addition = add_dict_merge(self.token_addition, token_addition)
-    self._token_removal = add_dict_merge(self._token_removal, token_removal) # assign to static variable (no dynamic leaf node filter)
-
-    
+    self._token_removal = add_dict_merge(self._token_removal, token_removal)
+    print(f"Cache updates took: {time.time() - t5:.4f} seconds")
 
 def remove_token_wte(wte, token_ids):
     # Get current weights
@@ -168,9 +206,11 @@ def update_model(self, new_wte, new_lm_head):
     self.model.transformer.wte = new_wte
     self.model.lm_head = new_lm_head
 
-def add_to_vocab(self):
+@timing_decorator
+def add_to_vocab(self, max_size_change: int = 500):
     # tokenizer addition 
-    tokens_to_group = list(self.token_addition.keys()) # token addition -> tokens to group 
+    # sort by counts, prioritize frequent groups 
+    tokens_to_group = sorted(self.token_addition.keys(), key=lambda x: self.token_addition[x], reverse=True)[:max_size_change]
     eom_tokens, pair_token_groups = self.tokenizer.add_tokens(tokens_to_group, in_place=True)
 
     print(f":: Total {len(tokens_to_group)} token groups, added {len(pair_token_groups)} pairwise merges")
@@ -187,8 +227,9 @@ def add_to_vocab(self):
     update_model(self, new_wte, new_lm_head)
     
     
-def remove_from_vocab(self): 
-    tokens_to_remove = list(self.token_removal.keys())
+@timing_decorator
+def remove_from_vocab(self, max_size_change: int = 500): 
+    tokens_to_remove = sorted(self.token_removal.keys(), key=lambda x: self.token_removal[x], reverse=True)[:max_size_change]
     print(f":: Total {len(tokens_to_remove)} tokens to remove")
     self.tokenizer.remove_tokens(tokens_to_remove)
     new_wte = remove_token_wte(self.model.transformer.wte, tokens_to_remove)

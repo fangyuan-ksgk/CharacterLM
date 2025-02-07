@@ -1,12 +1,12 @@
 setup.py
 magicab/__init__.py
 magicab/base_tok.py
-magicab/embed.py
 magicab/etoken.py
 magicab/grouping.py
 magicab/magicab.py
 magicab/utils.py
 magicab/vis.py
+magicab/vocab_update.py
 magicab.egg-info/PKG-INFO
 magicab.egg-info/SOURCES.txt
 magicab.egg-info/dependency_links.txt

@@ -42,10 +42,10 @@ class Magicab:
     def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False):         
         _cache_vocabulary_change(self, text, input_ids, target_ids)
         
-    def update_vocab(self):
+    def update_vocab(self, max_size_change: int = 500):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
-        add_to_vocab(self)
-        remove_from_vocab(self) # is it possible to remove in wrong order? (removing (100) before removing (102 = (100, 101)) ?)
+        add_to_vocab(self, max_size_change)
+        remove_from_vocab(self, max_size_change) # is it possible to remove in wrong order? (removing (100) before removing (102 = (100, 101)) ?)
         self.reset_update_info()
 
     def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo"): 
@@ -211,7 +211,7 @@ class Magicab:
     
     
     
-def update_magicab(magicab, data_dir, block_size, batch_size, device_type): 
+def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_size_change: int = 500): 
     data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
 
     total_batches = len(data) // (block_size * batch_size) + 1
@@ -230,5 +230,5 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type):
         # cache vocabulary change 
         magicab.cache_vocab_change(input_ids=x, target_ids=y)
 
-    magicab.update_vocab() # update tokenizer & model
+    magicab.update_vocab(max_size_change=max_size_change) # update tokenizer & model
     return magicab

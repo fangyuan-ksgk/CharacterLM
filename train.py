@@ -275,8 +275,7 @@ while True:
         
         from data.enwiki.util import prepare_enwiki_data
         prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer) # in-place update on trianing data 
-
-    
+        
     
     # determine and set the learning rate for this iteration
     lr = get_lr(iter_num) if decay_lr else learning_rate
