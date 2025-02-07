@@ -103,7 +103,7 @@ class ETokenizer(Tokenizer):
         return self._encode(ids)
             
             
-    def _add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
+    def _add_tokens(self, tokens_to_group, group_positions=None):
         
         vocab = deepcopy(self.vocab)
         merges = deepcopy(self.merges)
@@ -136,9 +136,6 @@ class ETokenizer(Tokenizer):
                     new_idx = max(vocab.keys()) + 1  # maximum token idx plus one | assume consecutive token ids
                     vocab[new_idx] = new_token
                     merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx 
-                    
-                    if in_place:                    
-                        print(f" :: Add new token {new_token}  Id: {new_idx}")
                         
                     prefix_token_idx = new_idx
                     
@@ -160,7 +157,7 @@ class ETokenizer(Tokenizer):
 
     def add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
      
-        vocab, merges, eom_tokens, pair_token_groups, pair_token_positions = self._add_tokens(tokens_to_group, group_positions, in_place)
+        vocab, merges, eom_tokens, pair_token_groups, pair_token_positions = self._add_tokens(tokens_to_group, group_positions)
                 
         if in_place: 
             self.vocab = vocab

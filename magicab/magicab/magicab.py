@@ -14,11 +14,15 @@ class Magicab:
     """Manages joint updates to both model vocabulary and tokenizer vocabulary"""
     
     def __init__(self, model, tokenizer, spike_quantile_threshold=0.8, group_quantile_threshold=0.6, 
+                 spike_perplexity_threshold=None, 
+                 group_perplexity_threshold=None, 
                  checkpoint_dir: str = "checkpoint/base"):
         self.model = model
         self.tokenizer = tokenizer
         self.spike_quantile_threshold = spike_quantile_threshold
         self.group_quantile_threshold = group_quantile_threshold
+        self.spike_perplexity_threshold = spike_perplexity_threshold
+        self.group_perplexity_threshold = group_perplexity_threshold
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = os.path.join(checkpoint_dir, "log")
         self.reset_update_info()
@@ -60,7 +64,7 @@ class Magicab:
 
         # (a). Spiking token visualization
         spike_color = 'pink'
-        spike_token_indices, spike_token_mask, spike_token_groups = detect_spike_token_batch(token_perplexity, quantile_threshold=self.spike_quantile_threshold, color=spike_color, char_token_mask=char_token_mask)
+        spike_token_indices, spike_token_mask, spike_token_groups = detect_spike_token_batch(token_perplexity, quantile_threshold=self.spike_quantile_threshold, perplexity_threshold=self.spike_perplexity_threshold, color=spike_color, char_token_mask=char_token_mask)
         char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, spike_token_mask, spike_token_groups, char_token_mask, decode, mask_color=spike_color)
 
         file_name = "spike"
@@ -72,7 +76,7 @@ class Magicab:
             
         # (b). Remove token visualization 
         remove_color = 'orange'
-        tokens_to_remove, remove_token_indices, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, color=remove_color, char_token_mask=char_token_mask)
+        tokens_to_remove, remove_token_indices, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, perplexity_threshold=self.spike_perplexity_threshold, color=remove_color, char_token_mask=char_token_mask)
         char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, remove_token_mask, remove_token_groups, char_token_mask, decode, mask_color=remove_color)
 
         file_name = "remove"
@@ -83,7 +87,7 @@ class Magicab:
             
         # (c). Group token visualization 
         group_color = 'lightgreen'
-        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, self.token_addition, quantile_threshold=self.group_quantile_threshold, color=group_color, char_token_mask=char_token_mask)
+        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, self.token_addition, quantile_threshold=self.group_quantile_threshold, perplexity_threshold=self.group_perplexity_threshold, color=group_color, char_token_mask=char_token_mask)
         char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, group_token_mask, token_groups, char_token_mask, decode, mask_color=group_color)
 
         file_name = "group"
@@ -97,6 +101,7 @@ class Magicab:
             token_ids, 
             token_perplexity,
             quantile_threshold=self.spike_quantile_threshold,
+            perplexity_threshold=self.spike_perplexity_threshold,
             char_token_mask=char_token_mask
         )
         
@@ -107,6 +112,7 @@ class Magicab:
             token_perplexity,
             self.tokenizer,
             quantile_threshold=self.spike_quantile_threshold,
+            perplexity_threshold=self.spike_perplexity_threshold,
             char_token_mask=char_token_mask
         )
             
@@ -119,6 +125,7 @@ class Magicab:
             token_perplexity, 
             cache_token_addition = self.token_addition,
             quantile_threshold=self.group_quantile_threshold,
+            perplexity_threshold=self.group_perplexity_threshold,
             char_token_mask=char_token_mask 
         )
 
@@ -161,7 +168,7 @@ class Magicab:
         
         # spike
         spike_color = 'pink'
-        spike_token_positions, spike_token_mask, spike_token_groups = detect_spike_token_batch(token_perplexity, quantile_threshold=self.spike_quantile_threshold, color=spike_color, char_token_mask=char_token_mask)
+        spike_token_positions, spike_token_mask, spike_token_groups = detect_spike_token_batch(token_perplexity, quantile_threshold=self.spike_quantile_threshold, perplexity_threshold=self.spike_perplexity_threshold, color=spike_color, char_token_mask=char_token_mask)
 
         for token_id, token_loss, char_mask, spike_token_pos in zip(token_ids, token_perplexity, char_token_mask, spike_token_positions): 
             threshold = torch.quantile(token_loss, self.spike_quantile_threshold)
@@ -173,7 +180,7 @@ class Magicab:
 
         # remove 
         remove_color = 'orange'
-        tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, color=remove_color, char_token_mask=char_token_mask)
+        tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, perplexity_threshold=self.spike_perplexity_threshold, color=remove_color, char_token_mask=char_token_mask)
         
         char_ids = torch.tensor(list(self.tokenizer.char_vocab.keys()))
         base_char_mask = torch.isin(token_ids, char_ids)
@@ -199,7 +206,9 @@ class Magicab:
         group_color = 'lightgreen'
         tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity,
                                                                                                           cache_token_addition=self.token_addition,
-                                                                                                          quantile_threshold=self.group_quantile_threshold, color=group_color, char_token_mask=char_token_mask)
+                                                                                                          quantile_threshold=self.group_quantile_threshold, 
+                                                                                                          perplexity_threshold=self.group_perplexity_threshold,
+                                                                                                          color=group_color, char_token_mask=char_token_mask)
 
         # group
         for token_id, token_loss, char_mask, group_token_ids in zip(token_ids, token_perplexity, char_token_mask, group_token_positions): 
@@ -216,14 +225,15 @@ class Magicab:
         return tokenizer_size_match and all_sizes_match
     
     
-    
+from tqdm import tqdm 
+
 def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_size_change: int = 500): 
     data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
 
     total_batches = len(data) // (block_size * batch_size) + 1
 
     # Loop through dataset in batches
-    for i in range(total_batches): 
+    for i in tqdm(range(total_batches), desc="Updating Magicab Vocabulary"): 
         ix = i * (block_size * batch_size) + np.arange(batch_size) * block_size
         x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
         y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])

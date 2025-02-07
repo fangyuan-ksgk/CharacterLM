@@ -1,12 +1,13 @@
 import torch 
 
 # Spike token: Sudden Jump in perplexity above threshold
-def _detect_spike_token(token_loss, quantile_threshold=0.80): 
+def _detect_spike_token(token_loss, quantile_threshold=0.80, perplexity_threshold=None): 
     """ 
     Spike token cross perplexity threshold, and shows a sudden increase in perplexity
     :: Need to consider 'multiple-character tokens' 
     """
-    loss_threshold = torch.quantile(token_loss, quantile_threshold)
+    quantile_threshold = torch.quantile(token_loss, quantile_threshold).item()
+    loss_threshold = max(quantile_threshold, perplexity_threshold if perplexity_threshold is not None else 0.)
     spike_token_positions = []
     for i in range(len(token_loss)):
         last_token_loss = token_loss[max(i-1, 0)]
@@ -14,15 +15,15 @@ def _detect_spike_token(token_loss, quantile_threshold=0.80):
             spike_token_positions.append(i)
     return spike_token_positions
 
-def detect_spike_token(token_ids, token_loss, quantile_threshold=0.80): 
-    spike_token_positions = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
+def detect_spike_token(token_ids, token_loss, quantile_threshold=0.80, perplexity_threshold=None): 
+    spike_token_positions = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold, perplexity_threshold=perplexity_threshold)
     tokens_to_spike = []
     for position in spike_token_positions: 
         tokens_to_spike.append(token_ids[0, position].item())
     return tokens_to_spike
 
-def get_spike_token_mask(token_loss, quantile_threshold=0.80, color='red'): 
-    spike_token_positions = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
+def get_spike_token_mask(token_loss, quantile_threshold=0.80, perplexity_threshold=None, color='red'): 
+    spike_token_positions = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold, perplexity_threshold=perplexity_threshold)
     spike_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
     spike_token_mask[spike_token_positions] = True
     
@@ -33,11 +34,13 @@ def get_spike_token_mask(token_loss, quantile_threshold=0.80, color='red'):
     return spike_token_mask, spike_token_groups
 
 
-def detect_spike_token_batch(token_perplexity, quantile_threshold=0.80, color='red', return_groups=True, char_token_mask=None):
+def detect_spike_token_batch(token_perplexity, quantile_threshold=0.80, perplexity_threshold=None, color='red', return_groups=True, char_token_mask=None):
     """ 
     Detect spike token in batch data 
     """
-    loss_threshold = torch.quantile(token_perplexity, quantile_threshold, axis=-1)
+    quantile_threshold = torch.quantile(token_perplexity, quantile_threshold, dim=1)
+    loss_threshold = torch.maximum(quantile_threshold, torch.tensor(perplexity_threshold if perplexity_threshold is not None else 0.))
+    
     prev_perplexity = torch.cat([token_perplexity[:, :1], token_perplexity[:, :-1]], dim=-1)
     spike_token_mask = (token_perplexity > prev_perplexity) & (token_perplexity > loss_threshold.unsqueeze(-1))
     
@@ -58,11 +61,12 @@ def detect_spike_token_batch(token_perplexity, quantile_threshold=0.80, color='r
     return spike_token_positions, spike_token_mask
 
 
-def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_threshold=0.80, color='red', return_groups=True, char_token_mask=None):
+def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_threshold=0.80, perplexity_threshold=None, color='red', return_groups=True, char_token_mask=None):
     """ 
     Detect remove token in batch data 
     """
-    loss_threshold = torch.quantile(token_perplexity, quantile_threshold, axis=-1)
+    quantile_threshold = torch.quantile(token_perplexity, quantile_threshold, dim=1)
+    loss_threshold = torch.maximum(quantile_threshold, torch.tensor(perplexity_threshold if perplexity_threshold is not None else 0.))
     spike_token_mask = token_perplexity > loss_threshold.unsqueeze(-1)
     base_char_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.char_vocab.keys())))
     leaf_token_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.leaf_token_ids)))
@@ -91,8 +95,8 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
     return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
 
 
-def _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=0.80): 
-    spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold)
+def _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=0.80, perplexity_threshold=None): 
+    spike_token_indices = _detect_spike_token(token_loss, quantile_threshold=quantile_threshold, perplexity_threshold=perplexity_threshold)
     positions_to_remove = []
     for index in spike_token_indices:
         token_id = token_ids[0, index].item()
@@ -100,8 +104,8 @@ def _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshol
             positions_to_remove.append(index)
     return positions_to_remove
 
-def get_remove_token_mask(token_ids, token_loss, tok, quantile_threshold=0.80, color='red'): 
-    positions_to_remove = _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=quantile_threshold)
+def get_remove_token_mask(token_ids, token_loss, tok, quantile_threshold=0.80, perplexity_threshold=None, color='red'): 
+    positions_to_remove = _detect_remove_token_positions(token_ids, token_loss, tok, quantile_threshold=quantile_threshold, perplexity_threshold=perplexity_threshold)
     remove_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
     remove_token_mask[positions_to_remove] = True
     
@@ -162,9 +166,14 @@ def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0
 
 
 def get_group_token_mask(token_loss, token_ids, cache_groups,
-                         quantile_threshold=0.7, color='green', char_token_mask=None): 
+                         quantile_threshold=0.7, 
+                         perplexity_threshold=None, 
+                         color='green', char_token_mask=None): 
+    
     # group token position includes special tokens 
-    group_tokens, group_token_positions = detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=quantile_threshold, char_token_mask=char_token_mask)
+    group_tokens, group_token_positions = detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=quantile_threshold,
+                                                             perplexity_threshold=perplexity_threshold,
+                                                             char_token_mask=char_token_mask)
     group_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
     groups = []
     for group in group_token_positions:
@@ -176,7 +185,10 @@ def get_group_token_mask(token_loss, token_ids, cache_groups,
     return group_tokens, group_token_positions, group_token_mask, groups
 
 
-def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, color='green', char_token_mask=None): 
+def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, 
+                             perplexity_threshold=None, 
+                             color='green', 
+                             char_token_mask=None): 
     """ 
     Detect group token in batch data 
     """
@@ -194,7 +206,8 @@ def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, 
         tokens_to_group_row, group_token_positions_row, group_token_masks_row, group_row = get_group_token_mask(token_loss=token_perp,
                                                                                            token_ids=token_ids_row,
                                                                                            cache_groups=cached_tuples,
-                                                                                           quantile_threshold=quantile_threshold, 
+                                                                                           quantile_threshold=quantile_threshold,
+                                                                                           perplexity_threshold=perplexity_threshold,
                                                                                            color=color, 
                                                                                            char_token_mask=char_token_mask_row)
         
