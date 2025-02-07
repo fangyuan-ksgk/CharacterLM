@@ -225,15 +225,18 @@ def inference(model, tokenizer,
         
         input_ids = token_ids[:, :-1]
         target_ids = token_ids[:, 1:]
+        
+    else: 
+        token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
+        texts = [tokenizer.decode(token_ids[i].tolist()) for i in range(token_ids.size(0))]
     
     if pad: 
         res = _pad_batch_inference(model, tokenizer, input_ids, target_ids)
     else: 
         res = batch_inference(model, tokenizer, input_ids, target_ids)
     
-    if valid_text: 
-        res['texts'] = texts
-        res["char_token_mask"] = ~torch.isin(token_ids, torch.tensor(tokenizer.special_ids)) # character & merge tokens
+    res['texts'] = texts
+    res["char_token_mask"] = ~torch.isin(token_ids, torch.tensor(tokenizer.special_ids)) # character & merge tokens
         
     return res
 
