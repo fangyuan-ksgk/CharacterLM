@@ -93,7 +93,8 @@ def _remove_tokens(tokenizer, tokens_to_remove):
     # new vocab & merges | remark: update token tuple indices in merges
     new_vocab = {idx_map[v]: k for v, k in tmp_vocab.items()}
     new_merges = {tuple([idx_map[id_tuple[0]], idx_map[id_tuple[1]]]): idx_map[k] for id_tuple, k in tmp_merges.items()}
-    
+    # Problem: leaf-token is calculated wrongly, local leaf-token is not global leaf-token 
+    # - we ends up removing tokens which left-over merges depends on ...
     return new_vocab, new_merges
 
 # -----------------------------------------------------------------------------

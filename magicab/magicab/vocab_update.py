@@ -94,7 +94,7 @@ def _cache_vocabulary_change(self, texts = None, input_ids = None, target_ids = 
     self.embed_cache = run_avg_dict_merge(self.embed_cache, embed_cache)
     self.project_cache = run_avg_dict_merge(self.project_cache, project_cache)
     self.token_addition = add_dict_merge(self.token_addition, token_addition)
-    self.token_removal = add_dict_merge(self.token_removal, token_removal)
+    self._token_removal = add_dict_merge(self._token_removal, token_removal) # assign to static variable (no dynamic leaf node filter)
 
     
 

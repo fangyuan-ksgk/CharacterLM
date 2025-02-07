@@ -1,6 +1,7 @@
 # appears to be a better name than 'update'
 import os 
 import torch 
+import numpy as np
 from typing import Optional
 from .grouping import detect_spike_token, detect_group_token, get_spike_token_mask, get_group_token_mask, get_remove_token_mask
 from .utils import calculate_bits_per_char, shift_token_loss, short_one, inference
@@ -27,8 +28,13 @@ class Magicab:
         self.embed_cache = {}
         self.project_cache = {}
         self.token_addition = {}
-        self.token_removal = {}
+        self._token_removal = {}
         self.tokenizer_copy = self.tokenizer.copy()
+        
+    @property
+    def token_removal(self): 
+        # dynamic filter to remove non-leaf tokens
+        return {k:v for k, v in self._token_removal.items() if k in self.tokenizer.leaf_token_ids}
         
     def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False): 
         return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad)
@@ -39,7 +45,7 @@ class Magicab:
     def update_vocab(self):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
         add_to_vocab(self)
-        remove_from_vocab(self)
+        remove_from_vocab(self) # is it possible to remove in wrong order? (removing (100) before removing (102 = (100, 101)) ?)
         self.reset_update_info()
 
     def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo"): 
@@ -202,3 +208,27 @@ class Magicab:
         
         
         return tokenizer_size_match and all_sizes_match
+    
+    
+    
+def update_magicab(magicab, data_dir, block_size, batch_size, device_type): 
+    data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
+
+    total_batches = len(data) // (block_size * batch_size) + 1
+
+    # Loop through dataset in batches
+    for i in range(total_batches): 
+        ix = i * (block_size * batch_size) + np.arange(batch_size) * block_size
+        x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
+        y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
+        if device_type == 'cuda':
+            # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
+            x, y = x.pin_memory().to(device_type, non_blocking=True), y.pin_memory().to(device_type, non_blocking=True)
+        else:
+            x, y = x.to(device_type), y.to(device_type)
+            
+        # cache vocabulary change 
+        magicab.cache_vocab_change(input_ids=x, target_ids=y)
+
+    magicab.update_vocab() # update tokenizer & model
+    return magicab

@@ -112,7 +112,7 @@ def get_char_perplexity_batch(texts, token_ids, token_perplexity, decode_fn):
     char_perplexity = []
     for text, token_ids_, token_perplexity_ in zip(texts, token_ids, token_perplexity): 
         char_perplexity.append(get_char_perplexity(text, token_ids_, token_perplexity_, decode_fn))
-    return torch.stack(char_perplexity, dim=0)
+    return char_perplexity
 
     
 
@@ -203,7 +203,7 @@ def inference(model, tokenizer,
               text = None, 
               input_ids = None, 
               target_ids = None,
-              pad: bool = False):
+              pad: bool = False): # Issue: why should we assume 'texts' to have same length?
     
     valid_text = text is not None and (isinstance(text, str) or isinstance(text, list))
     valid_batch = (input_ids is not None and target_ids is not None) and (input_ids.shape == target_ids.shape)
