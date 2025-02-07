@@ -212,7 +212,7 @@ def batch_inference(model, tokenizer, input_ids, target_ids, return_representati
     bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode)
     token_perplexity = shift_token_loss(token_loss)
     
-    char_perplexity = get_char_perplexity_batch(texts, token_ids, token_perplexity, decode)
+    char_perplexity = get_char_perplexity_batch(token_ids, token_perplexity, decode)
 
     if return_representation: 
         return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, 

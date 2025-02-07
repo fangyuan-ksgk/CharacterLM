@@ -82,7 +82,7 @@ class Magicab:
             
         # (c). Group token visualization 
         group_color = 'lightgreen'
-        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, quantile_threshold=self.group_quantile_threshold, color=group_color, char_token_mask=char_token_mask)
+        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, self.token_addition, quantile_threshold=self.group_quantile_threshold, color=group_color, char_token_mask=char_token_mask)
         char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, group_token_mask, token_groups, char_token_mask, decode, mask_color=group_color)
 
         file_name = "group"
@@ -116,7 +116,7 @@ class Magicab:
         return detect_group_token_batch(
             token_ids, 
             token_perplexity, 
-            cache_addition = self.token_addition,
+            cache_token_addition = self.token_addition,
             quantile_threshold=self.group_quantile_threshold,
             char_token_mask=char_token_mask 
         )
