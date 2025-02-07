@@ -36,8 +36,9 @@ class Magicab:
         # dynamic filter to remove non-leaf tokens
         return {k:v for k, v in self._token_removal.items() if k in self.tokenizer.leaf_token_ids}
         
-    def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False, return_representation: bool = False): 
-        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation)
+    def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False, 
+                    return_representation: bool = False, return_char_perplexity: bool = False): 
+        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation, return_char_perplexity)
     
     def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False):         
         _cache_vocabulary_change(self, text, input_ids, target_ids)
@@ -52,7 +53,7 @@ class Magicab:
         
         """Visualizes the changes in perplexity before and after updating the vocabulary"""
         
-        res = self.inference(texts, input_ids, target_ids)
+        res = self.inference(texts, input_ids, target_ids, return_char_perplexity=True)
         
         texts, token_ids, token_perplexity, char_token_mask = res['texts'], res['token_ids'], res['token_perplexity'], res['char_token_mask']
         decode = lambda x: self.tokenizer.decode(x)
@@ -196,7 +197,9 @@ class Magicab:
                 
 
         group_color = 'lightgreen'
-        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, quantile_threshold=self.group_quantile_threshold, color=group_color, char_token_mask=char_token_mask)
+        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity,
+                                                                                                          cache_token_addition=self.token_addition,
+                                                                                                          quantile_threshold=self.group_quantile_threshold, color=group_color, char_token_mask=char_token_mask)
 
         # group
         for token_id, token_loss, char_mask, group_token_ids in zip(token_ids, token_perplexity, char_token_mask, group_token_positions): 
@@ -204,6 +207,8 @@ class Magicab:
                 assert (token_loss[group[1:]] < threshold).all().item(), "Group token should have perplexity below threshold"
                 assert (token_loss[group[1:]] < token_loss[group[:-1]]).all().item(), "Group token should have decreasing perplexity"        
                 assert torch.tensor(group).max() < len(token_id), "group token position is out of bound"
+                assert len(group) > 1, "group token should span at least 2 tokens"
+                assert tuple(group) not in self.token_addition, "group token should not be in the cache"
                 
         print(":: Group Token Sanity Check Passed")
         

@@ -186,7 +186,9 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
     return res 
 
 
-def batch_inference(model, tokenizer, input_ids, target_ids, return_representation: bool = False): 
+def batch_inference(model, tokenizer, input_ids, target_ids, 
+                    return_char_perplexity: bool = False,
+                    return_representation: bool = False): 
     """ 
     Miscellaneous results from model inference
     """
@@ -197,29 +199,21 @@ def batch_inference(model, tokenizer, input_ids, target_ids, return_representati
     else: 
         logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
 
-
-
-    decode = lambda x: tokenizer.decode(x)
-
     token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
-    texts = [tokenizer.decode(token_ids[i].tolist()) for i in range(token_ids.size(0))]
-
-    if return_representation: 
-        logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
-    else: 
-        logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
+    res["token_ids"] = token_ids
     
-    bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode)
     token_perplexity = shift_token_loss(token_loss)
+    res["token_perplexity"] = token_perplexity
     
-    char_perplexity = get_char_perplexity_batch(token_ids, token_perplexity, decode)
-
-    if return_representation: 
-        return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, 
-                "bpc_loss": bpc_loss, "char_perplexity": char_perplexity, "reps": reps}
-    else: 
-        return {"input_ids": input_ids, "token_ids": token_ids, "token_perplexity": token_perplexity, 
-                "bpc_loss": bpc_loss, "char_perplexity": char_perplexity}
+    if return_char_perplexity: 
+        decode = lambda x: tokenizer.decode(x)
+        bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode)
+        res["bpc_loss"] = bpc_loss
+        
+        char_perplexity = get_char_perplexity_batch(token_ids, token_perplexity, decode)
+        res["char_perplexity"] = char_perplexity
+        
+    return res 
     
     
 def inference(model, tokenizer,
@@ -227,7 +221,8 @@ def inference(model, tokenizer,
               input_ids = None, 
               target_ids = None,
               pad: bool = False,
-              return_representation: bool = False): # Issue: why should we assume 'texts' to have same length?
+              return_representation: bool = False,
+              return_char_perplexity: bool = False): # Issue: why should we assume 'texts' to have same length?
     
     valid_text = text is not None and (isinstance(text, str) or isinstance(text, list))
     valid_batch = (input_ids is not None and target_ids is not None) and (input_ids.shape == target_ids.shape)
@@ -255,9 +250,9 @@ def inference(model, tokenizer,
         texts = [tokenizer.decode(token_ids[i].tolist()) for i in range(token_ids.size(0))]
     
     if pad: 
-        res = _pad_batch_inference(model, tokenizer, input_ids, target_ids, return_representation)
+        res = _pad_batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation)
     else: 
-        res = batch_inference(model, tokenizer, input_ids, target_ids, return_representation)
+        res = batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation)
     
     res['texts'] = texts
     res["char_token_mask"] = ~torch.isin(token_ids, torch.tensor(tokenizer.special_ids)) # character & merge tokens

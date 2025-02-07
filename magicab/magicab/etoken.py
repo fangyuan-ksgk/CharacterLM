@@ -120,12 +120,12 @@ class ETokenizer(Tokenizer):
             # The Correct Logic should be a two-pointer approach
             length = len(token_group) - 1
             l, r = 0, 1
-            prefix_token_idx = token_group[l]
+            prefix_token_idx = token_group[l].item()
             prefix_token = vocab[prefix_token_idx]
             
             while l < r: 
                 
-                curr_token_idx = token_group[r]                
+                curr_token_idx = token_group[r].item()             
                 curr_token = vocab[curr_token_idx]
                 
                 new_token = prefix_token + curr_token

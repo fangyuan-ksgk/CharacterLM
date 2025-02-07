@@ -112,11 +112,14 @@ def get_remove_token_mask(token_ids, token_loss, tok, quantile_threshold=0.80, c
     return remove_token_mask, remove_token_groups
 
 # Natural token group: consecutive decrease in perplexity below threshold
-def _detect_group_token(token_loss, quantile_threshold=0.7, char_token_mask=None): 
-    loss_threshold = torch.quantile(token_loss, quantile_threshold)
-    natural_group = []
+def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0.7, perplexity_threshold=None, char_token_mask=None): 
+    quantile_threshold = torch.quantile(token_loss, quantile_threshold).item()
+    threshold = min(quantile_threshold, perplexity_threshold if perplexity_threshold is not None else 99.)
+    natural_group_positions = []
+    natural_groups = []
+    curr_group_positions = []
     curr_group = []
-
+    
     i = 0
     while i < len(token_loss): 
         
@@ -125,45 +128,43 @@ def _detect_group_token(token_loss, quantile_threshold=0.7, char_token_mask=None
             if not char_token_mask[i]: 
                 valid_item = False
         
-        if not valid_item: 
-            if len(curr_group) > 1: 
-                natural_group.append(curr_group)
+        if not valid_item: # group continuation breaks
+            if len(curr_group) > 1:
+                non_duplicate_group = tuple(curr_group) not in cache_groups
+                if non_duplicate_group: 
+                    natural_groups.append(curr_group)
+                    natural_group_positions.append(curr_group_positions)
+                    
             curr_group = []
+            curr_group_positions = []
             i += 1
             continue
         
         if not curr_group: 
-            curr_group.append(i) # first token in group can be hard to guess, point is the continuation of the group should be simple
-        elif token_loss[i] <= token_loss[i-1] and token_loss[i] < loss_threshold:  # Continue group if decreasing
-            curr_group.append(i)
+            curr_group.append(token_ids[i]) # first token in group can be hard to guess, point is the continuation of the group should be simple
+            curr_group_positions.append(i)
+        elif token_loss[i] <= token_loss[i-1] and token_loss[i] < threshold:  # Continue group if decreasing
+            curr_group.append(token_ids[i])
+            curr_group_positions.append(i)
         else: 
-            if len(curr_group) > 1: 
-                natural_group.append(curr_group)
+            if len(curr_group) > 1 and tuple(curr_group) not in cache_groups: 
+                natural_groups.append(curr_group)
+                natural_group_positions.append(curr_group_positions)
             curr_group = []
+            curr_group_positions = []
         i += 1
             
-    if len(curr_group) > 1:
-        natural_group.append(curr_group)    
+    if len(curr_group) > 1 and tuple(curr_group) not in cache_groups:
+        natural_groups.append(curr_group)  
+        natural_group_positions.append(curr_group_positions)
         
-    return natural_group
+    return natural_groups, natural_group_positions
 
 
-
-def detect_group_token(token_ids, token_loss, quantile_threshold=0.7, return_indices=False): 
-    group_token_positions = _detect_group_token(token_loss, quantile_threshold=quantile_threshold)
-    tokens_to_group = []
-    for group in group_token_positions: 
-        tokens_to_group.append(token_ids[0, group].tolist())
-    if return_indices: 
-        return tokens_to_group, group_token_positions
-    else: 
-        return tokens_to_group
-    
-    
-
-def get_group_token_mask(token_loss, quantile_threshold=0.7, color='green', char_token_mask=None): 
+def get_group_token_mask(token_loss, token_ids, cache_groups,
+                         quantile_threshold=0.7, color='green', char_token_mask=None): 
     # group token position includes special tokens 
-    group_token_positions = _detect_group_token(token_loss, quantile_threshold=quantile_threshold, char_token_mask=char_token_mask)
+    group_tokens, group_token_positions = detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=quantile_threshold, char_token_mask=char_token_mask)
     group_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
     groups = []
     for group in group_token_positions:
@@ -172,7 +173,7 @@ def get_group_token_mask(token_loss, quantile_threshold=0.7, color='green', char
         curr_group = g_start, g_end, str(len(groups) + 1), color
         groups.append(curr_group)
     
-    return group_token_positions, group_token_mask, groups
+    return group_tokens, group_token_positions, group_token_mask, groups
 
 
 def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, color='green', char_token_mask=None): 
@@ -182,26 +183,24 @@ def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, 
     if token_perplexity.ndim == 1: 
         token_perplexity = token_perplexity.unsqueeze(0)
     
-    cached_tuples = torch.tensor(list(cache_token_addition.keys()))
+    cached_tuples = set(cache_token_addition.keys())
         
     tokens_to_group = []
     group_token_positions = []
     group_token_masks = []
     groups = []
     for token_ids_row, token_perp, char_token_mask_row in zip(token_ids, token_perplexity, char_token_mask):
-        non_cache_mask = ~torch.isin(token_ids_row, cached_tuples)
-        group_token_positions_row, group_token_masks_row, group_row = get_group_token_mask(token_loss=token_perp, 
+        # avoid duplicate token group detection (in cached groups will be skipped)
+        tokens_to_group_row, group_token_positions_row, group_token_masks_row, group_row = get_group_token_mask(token_loss=token_perp,
+                                                                                           token_ids=token_ids_row,
+                                                                                           cache_groups=cached_tuples,
                                                                                            quantile_threshold=quantile_threshold, 
                                                                                            color=color, 
-                                                                                           char_token_mask=char_token_mask_row & non_cache_mask)
+                                                                                           char_token_mask=char_token_mask_row)
         
         group_token_positions.append(group_token_positions_row)
         group_token_masks.append(group_token_masks_row)
         groups.append(group_row)
-        
-        tokens_to_group_row = []
-        for g in group_token_positions_row: 
-            tokens_to_group_row.append(token_ids_row[g].tolist())
         tokens_to_group.append(tokens_to_group_row)
         
     group_token_masks = torch.stack(group_token_masks, axis=0)

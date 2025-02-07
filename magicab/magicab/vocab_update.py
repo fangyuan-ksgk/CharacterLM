@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Optional
 import torch
 import time
+import random
 from functools import wraps
 
 def run_avg_dict_update(d, key, new_value): 
@@ -212,7 +213,10 @@ def update_model(self, new_wte, new_lm_head):
 def add_to_vocab(self, max_size_change: int = 500):
     # tokenizer addition 
     # sort by counts, prioritize frequent groups 
-    tokens_to_group = sorted(self.token_addition.keys(), key=lambda x: self.token_addition[x], reverse=True)[:max_size_change]
+    # I've disabled repetitive token addition, we might as well randomize the order here
+    tokens_to_group = list(self.token_addition.keys())
+    random.shuffle(tokens_to_group)
+    tokens_to_group = tokens_to_group[:max_size_change]
     eom_tokens, pair_token_groups = self.tokenizer.add_tokens(tokens_to_group, in_place=True)
 
     print(f":: Total {len(tokens_to_group)} token groups, added {len(pair_token_groups)} pairwise merges")
