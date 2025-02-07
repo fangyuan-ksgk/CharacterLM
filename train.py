@@ -28,6 +28,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
+from magicab import ETokenizer, Magicab
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
@@ -76,6 +77,8 @@ compile = True # use PyTorch 2.0 to compile the model to be faster
 config_keys = [k for k,v in globals().items() if not k.startswith('_') and isinstance(v, (int, float, bool, str))]
 exec(open('configurator.py').read()) # overrides from command line or config file
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
+# -----------------------------------------------------------------------------
+magicab_interval = 1000
 # -----------------------------------------------------------------------------
 
 # various inits, derived attributes, I/O setup
@@ -142,6 +145,9 @@ if os.path.exists(meta_path):
         meta = pickle.load(f)
     meta_vocab_size = meta['vocab_size']
     print(f"found vocab_size = {meta_vocab_size} (inside {meta_path})")
+
+# Magicab: load E-tokenizer 
+tokenizer = ETokenizer(char_vocab=meta['itos'])
 
 # model init
 model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
@@ -210,6 +216,9 @@ if compile:
 # wrap model into DDP container
 if ddp:
     model = DDP(model, device_ids=[ddp_local_rank])
+    
+# Magicab: initialize magicab object
+magicab = Magicab(model=model, tokenizer=tokenizer, checkpoint_dir=out_dir)
 
 # helps estimate an arbitrarily accurate loss over either split using many batches
 @torch.no_grad()
@@ -250,6 +259,7 @@ if wandb_log and master_process:
 from tqdm import tqdm
 pbar = tqdm(total=max_iters, initial=iter_num, dynamic_ncols=True)
 
+
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
 t0 = time.time()
@@ -259,8 +269,13 @@ running_mfu = -1.0
 while True:
     
     # TODO: update model & tokenizer with Magicab | tokenizer should be used to update the 'data.bin' file, too
-    # if iter_num % magicab_interval == 0: 
-    #     model, tokenizer = magicab.update_vocabulary(text)
+    if iter_num % magicab_interval == 0 and iter_num > 0: 
+        # model, tokenizer = magicab.update_vocabulary(text) # Cache change via looping through dataset, then update tokenizer
+        # update_dataset(tokenizer)
+        
+        from data.enwiki.util import prepare_enwiki_data
+        prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer) # in-place update on trianing data 
+
     
     
     # determine and set the learning rate for this iteration
