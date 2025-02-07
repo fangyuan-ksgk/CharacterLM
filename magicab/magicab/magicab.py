@@ -16,7 +16,8 @@ class Magicab:
     def __init__(self, model, tokenizer, spike_quantile_threshold=0.8, group_quantile_threshold=0.6, 
                  spike_perplexity_threshold=None, 
                  group_perplexity_threshold=None, 
-                 checkpoint_dir: str = "checkpoint/base"):
+                 checkpoint_dir: str = "checkpoint/base",
+                 device: str = "cuda"):
         self.model = model
         self.tokenizer = tokenizer
         self.spike_quantile_threshold = spike_quantile_threshold
@@ -25,6 +26,7 @@ class Magicab:
         self.group_perplexity_threshold = group_perplexity_threshold
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = os.path.join(checkpoint_dir, "log")
+        self.device = device
         self.reset_update_info()
         os.makedirs(self.log_dir, exist_ok=True)
         
@@ -42,7 +44,7 @@ class Magicab:
         
     def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False, 
                     return_representation: bool = False, return_char_perplexity: bool = False): 
-        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation, return_char_perplexity)
+        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation, return_char_perplexity, device=self.device)
     
     def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False):         
         _cache_vocabulary_change(self, text, input_ids, target_ids)

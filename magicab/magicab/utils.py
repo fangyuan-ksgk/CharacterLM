@@ -147,11 +147,11 @@ def calculate_bits_per_char(token_loss, target_ids, decode_fn, special_token_mas
 
 def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
                          return_char_perplexity: bool = False,
-                         return_representation: bool = False): 
+                         return_representation: bool = False,
+                         device: str = "cuda"): 
     """ 
     Helper function to pad batch inference
     """
-    device = model.device
     input_ids = input_ids.to(device)
     target_ids = target_ids.to(device)
     
@@ -192,11 +192,11 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
 
 def batch_inference(model, tokenizer, input_ids, target_ids, 
                     return_char_perplexity: bool = False,
-                    return_representation: bool = False): 
+                    return_representation: bool = False,
+                    device: str = "cuda"): 
     """ 
     Miscellaneous results from model inference
     """
-    device = model.device
     input_ids = input_ids.to(device)
     target_ids = target_ids.to(device)
     
@@ -230,7 +230,8 @@ def inference(model, tokenizer,
               target_ids = None,
               pad: bool = False,
               return_representation: bool = False,
-              return_char_perplexity: bool = False): # Issue: why should we assume 'texts' to have same length?
+              return_char_perplexity: bool = False,
+              device: str = "cuda"): # Issue: why should we assume 'texts' to have same length?
     
     valid_text = text is not None and (isinstance(text, str) or isinstance(text, list))
     valid_batch = (input_ids is not None and target_ids is not None) and (input_ids.shape == target_ids.shape)
@@ -258,9 +259,9 @@ def inference(model, tokenizer,
         texts = [tokenizer.decode(token_ids[i].tolist()) for i in range(token_ids.size(0))]
     
     if pad: 
-        res = _pad_batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation)
+        res = _pad_batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device)
     else: 
-        res = batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation)
+        res = batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device)
     
     res['texts'] = texts
     res["char_token_mask"] = ~torch.isin(token_ids, torch.tensor(tokenizer.special_ids)) # character & merge tokens
