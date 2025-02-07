@@ -97,6 +97,7 @@ def prepare_enwiki_data(clean=False, tokenizer=None):
         test_data = data[95_000_000:100_000_000]
 
     # encode all splits
+    print(f"Encoding data with tokenizer ...")
     train_ids = encode(train_data)
     val_ids = encode(val_data)
     test_ids = encode(test_data)

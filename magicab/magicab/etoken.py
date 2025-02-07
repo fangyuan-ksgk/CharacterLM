@@ -1,6 +1,8 @@
 from .base_tok import get_valid_stats, merge, Tokenizer
 from .base_tok import _remove_tokens 
 import json, re
+from tqdm import tqdm  # Add this import at the top of the file
+from rust_tokenizer import PyETokenizer
 
 
 def encode_char(text, special_tokens, special2idx, char2idx): 
@@ -29,6 +31,10 @@ class ETokenizer(Tokenizer):
         self.char2idx = {c:i for i, c in char_vocab.items()}
         self.special_ids = list(self.special2idx.values())
 
+    @property 
+    def rust_tokenizer(self): 
+        return PyETokenizer(self.special_ids, self.merges)
+    
     @property 
     def inverse_vocab(self): 
         return {v:k for k, v in self.vocab.items()}
@@ -59,12 +65,10 @@ class ETokenizer(Tokenizer):
         text = text_bytes.decode("utf-8", errors="replace")
         return text 
     
-    def encode(self, text):
-        """ 
-        Exhaustive Encoding | Byte level vocabulary base --- we need character-level vocabulary
+    def _encode_python(self, ids): 
         """
-        ids = self.encode_char(text)
-
+        Exhaustive Encoding | Python ver. 
+        """
         while len(ids) >= 2:
             # find pairs and their stats given the current ids
             stats = get_valid_stats(ids, self.special_ids)
@@ -82,6 +86,21 @@ class ETokenizer(Tokenizer):
             ids = merge(ids, pair, idx)
             
         return ids
+    
+    def _encode(self, ids): 
+        """ 
+        Rust speed-up encoding
+        """
+        return self.rust_tokenizer.encode(ids)
+    
+    
+    def encode(self, text):
+        """ 
+        Exhaustive Encoding | Byte level vocabulary base --- we need character-level vocabulary
+        """
+        ids = self.encode_char(text)
+
+        return self._encode(ids)
             
 
     def add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
@@ -235,6 +254,7 @@ class ETokenizer(Tokenizer):
     
     def sanity_check(self, text = "Hello, world!"):
         assert self.decode(self.encode(text)) == text, "encode & decode mismatch"
+        print("Tokenizer has matching encoding & decoding")
         
         
     def copy(self):

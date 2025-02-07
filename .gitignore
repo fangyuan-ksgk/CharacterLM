@@ -18,3 +18,48 @@ venv/
 checkpoint/
 .checkpoint/
 .checkpoint
+
+
+# Rust specific
+/magicab/rust_tokenizer/target/
+/magicab/rust_tokenizer/Cargo.lock
+**/*.rs.bk
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+checkpoint/
+data/*.bin
+*.pt
+*.pkl
+
+# OS specific
+.DS_Store
+.env
+.venv/
