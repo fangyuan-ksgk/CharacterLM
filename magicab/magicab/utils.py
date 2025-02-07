@@ -151,6 +151,10 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
     """ 
     Helper function to pad batch inference
     """
+    device = model.device
+    input_ids = input_ids.to(device)
+    target_ids = target_ids.to(device)
+    
     res = {"input_ids": input_ids}
     if return_representation: 
         logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
@@ -192,6 +196,10 @@ def batch_inference(model, tokenizer, input_ids, target_ids,
     """ 
     Miscellaneous results from model inference
     """
+    device = model.device
+    input_ids = input_ids.to(device)
+    target_ids = target_ids.to(device)
+    
     res = {"input_ids": input_ids}
     if return_representation: 
         logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
