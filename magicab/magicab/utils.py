@@ -204,6 +204,7 @@ def batch_inference(model, tokenizer, input_ids, target_ids,
     Miscellaneous results from model inference
     """
     res = {}
+    res["input_ids"] = input_ids
     
     # Move tensors to device
     input_ids = input_ids.to(device)

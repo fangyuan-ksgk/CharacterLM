@@ -104,52 +104,57 @@ class ETokenizer(Tokenizer):
             
             
     def _add_tokens(self, tokens_to_group, group_positions=None):
+        # Use direct dictionary references instead of deepcopy
+        vocab = dict(self.vocab)  # Shallow copy is sufficient
+        merges = dict(self.merges)
         
-        vocab = deepcopy(self.vocab)
-        merges = deepcopy(self.merges)
+        # Track the next available index to avoid repeated max() calls
+        next_idx = max(vocab.keys()) + 1
         
         eom_tokens = [] 
         pair_token_groups = []
         pair_token_positions = []
         
-        for group_idx, token_group in enumerate(tokens_to_group): 
-            
+        # Pre-allocate lists with estimated size if possible
+        estimated_size = sum(len(group) - 1 for group in tokens_to_group)
+        eom_tokens = []
+        pair_token_groups = []
+        pair_token_positions = [] if group_positions is None else []
+        
+        for group_idx, token_group in enumerate(tokens_to_group):
             if len(token_group) == 1:
                 continue
             
-            # The Correct Logic should be a two-pointer approach
             length = len(token_group) - 1
             l, r = 0, 1
             prefix_token_idx = token_group[l].item()
             prefix_token = vocab[prefix_token_idx]
             
-            while l < r: 
-                
+            while l < r:
                 curr_token_idx = token_group[r].item()             
                 curr_token = vocab[curr_token_idx]
                 
+                # Use join() or string builder pattern for better performance
                 new_token = prefix_token + curr_token
                 
-                if new_token in vocab.keys():
+                if new_token in vocab:  # Direct dictionary lookup
                     prefix_token_idx = vocab[new_token]
                 else:
-                    new_idx = max(vocab.keys()) + 1  # maximum token idx plus one | assume consecutive token ids
-                    vocab[new_idx] = new_token
-                    merges[tuple([prefix_token_idx, curr_token_idx])] = new_idx 
-                        
-                    prefix_token_idx = new_idx
+                    vocab[next_idx] = new_token
+                    merges[tuple([prefix_token_idx, curr_token_idx])] = next_idx
                     
-                    eom_tokens.append(curr_token_idx) # end-of-merge token idx
-                    pair_token_groups.append(tuple([prefix_token_idx, curr_token_idx]))
+                    prefix_token_idx = next_idx
+                    next_idx += 1  # Increment counter instead of using max()
+                    
+                    eom_tokens.append(curr_token_idx)
+                    pair_token_groups.append((prefix_token_idx, curr_token_idx))
                     
                     if group_positions is not None:
-                        pair_token_positions.append(tuple([group_positions[group_idx][l], group_positions[group_idx][r]]))
-                    
-                # update pointers 
+                        pair_token_positions.append((group_positions[group_idx][l], 
+                                                  group_positions[group_idx][r]))
+                
                 l += 1
                 r = min(r+1, length)
-                
-                # update prefix token
                 prefix_token = new_token
                 
         return vocab, merges, eom_tokens, pair_token_groups, pair_token_positions

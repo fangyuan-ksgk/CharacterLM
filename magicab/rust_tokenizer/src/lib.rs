@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use pyo3::prelude::*;
 
 #[pyclass]
@@ -73,9 +74,24 @@ impl PyETokenizer {
     }
 }
 
+#[pyfunction]
+fn filter_tokens(remove_tokens: Vec<Vec<i64>>, leaf_tokens: Vec<i64>) -> Vec<Vec<i64>> {
+    let leaf_set: HashSet<_> = leaf_tokens.into_iter().collect();
+    
+    remove_tokens
+        .into_iter()
+        .map(|row| {
+            row.into_iter()
+                .filter(|&token| leaf_set.contains(&token))
+                .collect()
+        })
+        .collect()
+}
+
 /// A Python module implemented in Rust.
 #[pymodule]
 fn rust_tokenizer(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyETokenizer>()?;
+    m.add_function(wrap_pyfunction!(filter_tokens, m)?)?;
     Ok(())
 } 

@@ -4,6 +4,7 @@ import torch
 import time
 import random
 from functools import wraps
+import numpy as np 
 
 def run_avg_dict_update(d, key, new_value): 
     if key not in d: 
@@ -11,6 +12,17 @@ def run_avg_dict_update(d, key, new_value):
     else: 
         d[key] = (new_value + d[key]) / 2
     return d 
+
+
+def update_caches(project_cache, embed_cache, eom_token_ids, embeddings_row, projects_row, device="mps"):
+    
+    for key, value in zip(eom_token_ids, projects_row): 
+        project_cache[key] = value 
+        
+    for key, value in zip(eom_token_ids, embeddings_row): 
+        embed_cache[key] = value 
+        
+    return project_cache, embed_cache
 
 def run_avg_dict_merge(d1, d2): 
     for key in d2: 
@@ -46,35 +58,58 @@ def _prep_vocabulary_addition(self, input_ids, tokens_to_group, group_token_posi
     - (modified on model.py | use representations from one forward pass)
     """
     
+    # Initialize timing dictionaries
+    timings = {
+        'add_tokens': 0,
+        'slice_embeddings': 0,
+        'update_token_addition': 0,
+        'update_caches': 0
+    }
+    
     # Vocabulary Addition
-    embed_cache = {} # key: token ids  values: tensor of embedding vectors 
-    project_cache = {} # key: token ids  values: tensor of projection vectors 
-    token_addition = defaultdict(int) # key: tuple of group token ids : counts of group tokens 
+    embed_cache = {}  
+    project_cache = {}  
+    token_addition = defaultdict(int)
     
     for row_idx in range(len(input_ids)):
         input_ids_row = input_ids[row_idx]
         tokens_to_group_row = tokens_to_group[row_idx]
         group_positions = group_token_positions[row_idx]
         
-        eom_token_ids, pair_token_groups, pair_token_positions = self.tokenizer_copy.add_tokens(tokens_to_group_row, group_positions, in_place=True)
+        # Time add_tokens
+        t0 = time.time()
+        eom_token_ids, pair_token_groups, pair_token_positions = self.tokenizer_copy.add_tokens(
+            tokens_to_group_row, group_positions, in_place=True
+        )
+        timings['add_tokens'] += time.time() - t0
+        
         eom_positions = [p[-1] for p in pair_token_positions]
-
-        reps_row = reps[row_idx] # wte row initialization vectors 
+        reps_row = reps[row_idx]
         
+        # Time slice_embeddings
+        t0 = time.time()
         embeddings_row = self.model.transformer.wte.weight[eom_token_ids].detach()
-        projects_row = self.model.lm_head.weight[eom_token_ids].detach() # lm_head row initialization vectors
+        projects_row = self.model.lm_head.weight[eom_token_ids].detach()
+        timings['slice_embeddings'] += time.time() - t0
         
-        # tokens_to_group_row is shorter than eom_token_ids, which represent index of pairwise merge token
-        # e.g. tokens_to_group_row = [(1, 2, 3)], eom_token_ids = [2, 3]
-        
-        for token_tuple in tokens_to_group_row: 
+        # Time update_token_addition
+        t0 = time.time()
+        for token_tuple in tokens_to_group_row:
             token_tuple = tuple(token_tuple)
             token_addition[token_tuple] += 1
-            
-        for eom_token_id, embed_vec, project_vec in zip(eom_token_ids, embeddings_row, projects_row):            
-            project_cache = run_avg_dict_update(project_cache, eom_token_id, project_vec)
-            embed_cache = run_avg_dict_update(embed_cache, eom_token_id, embed_vec)
-            
+        timings['update_token_addition'] += time.time() - t0
+        
+        # Time update_caches
+        t0 = time.time()
+        project_cache, embed_cache = update_caches(project_cache, embed_cache, eom_token_ids, embeddings_row, projects_row,
+                                                   device=self.device)
+      
+        timings['update_caches'] += time.time() - t0
+    
+    # Print timing summary
+    for component, elapsed in timings.items():
+        print(f" - {component}: {elapsed:.4f} seconds")
+    
     return token_addition, embed_cache, project_cache
 
 
@@ -118,20 +153,16 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None):
     token_addition, embed_cache, project_cache = _prep_vocabulary_addition(
         self, input_ids, tokens_to_group, group_positions, reps
     )
-    print(f" - Vocabulary addition (inference required) prep took: {time.time() - t3:.4f} seconds")
-
+    print(f" - Vocabulary addition prep took: {time.time() - t3:.4f} seconds")
+    
+    
     t4 = time.time()
-    # Filter tokens efficiently using sets
-    leaf_token_set = set(self.tokenizer_copy.leaf_token_ids)
-    filtered_tokens_to_remove = [
-        [i for i in row if i in leaf_token_set] 
-        for row in tokens_to_remove
-    ]
-    token_removal = _prep_vocabulary_removal(filtered_tokens_to_remove)
+    token_removal = _prep_vocabulary_removal(tokens_to_remove)
     print(f" - Token removal prep took: {time.time() - t4:.4f} seconds")
     
     t5 = time.time()
-    # Update caches efficiently using dict operations
+    # Update caches efficiently using dict operations : switch to batch operations
+    
     self.embed_cache = run_avg_dict_merge(self.embed_cache, embed_cache)
     self.project_cache = run_avg_dict_merge(self.project_cache, project_cache)
     self.token_addition = add_dict_merge(self.token_addition, token_addition)

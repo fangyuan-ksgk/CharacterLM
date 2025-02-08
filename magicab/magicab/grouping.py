@@ -75,11 +75,11 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
     if char_token_mask is not None: 
         remove_token_mask = remove_token_mask & char_token_mask & leaf_token_mask
     
-    remove_token_positions = [torch.nonzero(row)[:, 0] for row in remove_token_mask]
+    remove_token_positions = [torch.nonzero(row)[:, 0].tolist() for row in remove_token_mask]
     
     tokens_to_remove = [] 
     for remove_token_mask_row, token_ids_row in zip(remove_token_mask, token_ids): 
-        tokens_to_remove.append(token_ids_row[remove_token_mask_row])
+        tokens_to_remove.append(token_ids_row[remove_token_mask_row].tolist())
     
     if return_groups: 
         remove_token_groups = []
