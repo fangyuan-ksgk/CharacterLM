@@ -43,11 +43,12 @@ class Magicab:
         return {k:v for k, v in self._token_removal.items() if k in self.tokenizer.leaf_token_ids}
         
     def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False, 
-                    return_representation: bool = False, return_char_perplexity: bool = False): 
-        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation, return_char_perplexity, device=self.device)
+                    return_representation: bool = False, return_char_perplexity: bool = False,
+                    return_device: str = "cpu"): 
+        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation, return_char_perplexity, device=self.device, return_device=return_device)
     
-    def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False, avoid_duplicate: bool = False):         
-        _cache_vocabulary_change(self, text, input_ids, target_ids, avoid_duplicate)
+    def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False, avoid_duplicate: bool = False, cal_mask_device: str = "cpu"):         
+        _cache_vocabulary_change(self, text, input_ids, target_ids, avoid_duplicate, cal_mask_device)
         
     def update_vocab(self, max_size_change: int = 500):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
@@ -55,11 +56,11 @@ class Magicab:
         remove_from_vocab(self, max_size_change) # is it possible to remove in wrong order? (removing (100) before removing (102 = (100, 101)) ?)
         self.reset_update_info()
 
-    def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo"): 
+    def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo", return_device: str = "cpu"): 
         
         """Visualizes the changes in perplexity before and after updating the vocabulary"""
         
-        res = self.inference(texts, input_ids, target_ids, return_char_perplexity=True)
+        res = self.inference(texts, input_ids, target_ids, return_char_perplexity=True, return_device=return_device)
         
         texts, token_ids, token_perplexity, char_token_mask = res['texts'], res['token_ids'], res['token_perplexity'], res['char_token_mask']
         decode = lambda x: self.tokenizer.decode(x)
@@ -109,7 +110,7 @@ class Magicab:
             char_token_mask=char_token_mask
         )
         
-    def _detect_remove_tokens(self, token_ids, token_perplexity, char_token_mask):
+    def _detect_remove_tokens(self, token_ids, token_perplexity, char_token_mask, cal_mask_device: str = "cpu"):
         """Identifies tokens with unusually high perplexity"""
         tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups =  detect_remove_token_batch(
             token_ids, 
@@ -117,12 +118,13 @@ class Magicab:
             self.tokenizer,
             quantile_threshold=self.spike_quantile_threshold,
             perplexity_threshold=self.spike_perplexity_threshold,
-            char_token_mask=char_token_mask
+            char_token_mask=char_token_mask,
+            cal_mask_device=cal_mask_device
         )
             
         return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
 
-    def _detect_group_tokens(self, token_ids, token_perplexity, char_token_mask, avoid_duplicate: bool = False):
+    def _detect_group_tokens(self, token_ids, token_perplexity, char_token_mask, avoid_duplicate: bool = False, cal_mask_device: str = "cpu"):
         """Identifies sequences of tokens that should be merged"""
         return detect_group_token_batch(
             token_ids, 
@@ -130,7 +132,8 @@ class Magicab:
             cache_token_addition = self.token_addition if avoid_duplicate else None,
             quantile_threshold=self.group_quantile_threshold,
             perplexity_threshold=self.group_perplexity_threshold,
-            char_token_mask=char_token_mask 
+            char_token_mask=char_token_mask,
+            cal_mask_device=cal_mask_device
         )
 
     def _update_word_embeddings(self, tokens_to_remove, tokens_to_add):

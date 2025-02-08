@@ -5,19 +5,17 @@ from torch.nn import functional as F
 
 
 
-def shift_token_loss(token_loss, return_tensor=True): 
-    if len(token_loss.shape) == 1: 
-        token_perplexity = token_loss.to("cpu").numpy()
-        token_perplexity = np.pad(token_perplexity, (1, 0), mode='constant', constant_values=0.)
-    else: 
-        token_perplexity = token_loss.to("cpu").numpy()
-        token_perplexity = np.pad(token_perplexity, [(0, 0), (1, 0)], mode='constant', constant_values=0.)
+def shift_token_loss(token_loss, return_tensor=False): 
+    """ 
+    return_tensor: whether to return a tensor or a numpy array
+    """
+    # F.pad preserves the input tensor's device automatically
+    token_perplexity = F.pad(token_loss, (1, 0), mode='constant', value=0.)
 
     if return_tensor: 
-        return torch.tensor(token_perplexity)
+        return token_perplexity
     else: 
-        return token_perplexity 
-
+        return token_perplexity.cpu().numpy()
     
     
 def map_token_to_char_group(text, token_ids, decode_fn, token_groups, char_token_mask = None): 
@@ -148,7 +146,8 @@ def calculate_bits_per_char(token_loss, target_ids, decode_fn, special_token_mas
 def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
                          return_char_perplexity: bool = False,
                          return_representation: bool = False,
-                         device: str = "cuda"): 
+                         device: str = "cuda", # computation device
+                         return_device: str = "cpu"): 
     """ 
     Helper function to pad batch inference
     For processing, we do it on CPU
@@ -156,24 +155,24 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
     input_ids = input_ids.to(device)
     target_ids = target_ids.to(device)
     
-    res = {"input_ids": input_ids}
+    res = {"input_ids": input_ids.to(return_device)}
     with torch.no_grad():
         if return_representation: 
             logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
-            res["reps"] = reps.to("cpu")
+            res["reps"] = reps.to(return_device)
         else: 
             logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
 
-    input_ids = input_ids.to("cpu")
-    target_ids = target_ids.to("cpu")
-    token_loss = token_loss.to("cpu")
+    input_ids = input_ids.to(return_device)
+    target_ids = target_ids.to(return_device)
+    token_loss = token_loss.to(return_device)
 
     token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
     res["token_ids"] = token_ids
     special_token_mask = token_ids.ne(tokenizer.special2idx["<pad>"])
 
     token_loss = token_loss * special_token_mask[:, 1:] # zero-out loss for pad tokens
-    token_perplexity = shift_token_loss(token_loss)
+    token_perplexity = shift_token_loss(token_loss, return_tensor=True)
     res["token_perplexity"] = token_perplexity
     
     if return_char_perplexity: 
@@ -186,9 +185,9 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
         bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode, special_token_mask[:, 1:])
 
         char_token_loss = [token_loss_row[special_token_mask_row[1:]] for token_loss_row, special_token_mask_row in zip(token_loss, special_token_mask)]
-        char_token_perplexity = [shift_token_loss(char_token_loss_row) for char_token_loss_row in char_token_loss]
+        char_token_perplexity = [shift_token_loss(char_token_loss_row, return_tensor=True) for char_token_loss_row in char_token_loss]
         
-        char_perplexity = get_char_perplexity_batch(char_token_ids, char_token_perplexity, decode)
+        char_perplexity = get_char_perplexity_batch(char_token_ids.to("cpu"), char_token_perplexity.to("cpu"), decode)
         
         res["char_perplexity"] = char_perplexity
         res["bpc_loss"] = bpc_loss
@@ -199,12 +198,13 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
 def batch_inference(model, tokenizer, input_ids, target_ids, 
                     return_char_perplexity: bool = False,
                     return_representation: bool = False,
-                    device: str = "cuda"): 
+                    device: str = "cuda",
+                    return_device: str = "cpu"): 
     """ 
     Miscellaneous results from model inference
     """
     res = {}
-    res["input_ids"] = input_ids
+    res["input_ids"] = input_ids.to(return_device)
     
     # Move tensors to device
     input_ids = input_ids.to(device)
@@ -214,18 +214,18 @@ def batch_inference(model, tokenizer, input_ids, target_ids,
     with torch.no_grad():
         if return_representation:
             logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True)
-            res["reps"] = reps.to("cpu")
+            res["reps"] = reps.to(return_device)
         else: 
             logits, token_loss = model(input_ids, targets=target_ids, reduction='none')
     
-    input_ids = input_ids.to("cpu")
-    target_ids = target_ids.to("cpu")
-    token_loss = token_loss.to("cpu")
+    input_ids = input_ids.to(return_device)
+    target_ids = target_ids.to(return_device)
+    token_loss = token_loss.to(return_device)
     
     token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
     res["token_ids"] = token_ids
     
-    token_perplexity = shift_token_loss(token_loss)
+    token_perplexity = shift_token_loss(token_loss, return_tensor=True) # numpy if return_device is cpu
     res["token_perplexity"] = token_perplexity
     
     if return_char_perplexity: 
@@ -233,7 +233,7 @@ def batch_inference(model, tokenizer, input_ids, target_ids,
         bpc_loss = calculate_bits_per_char(token_loss, target_ids, decode)
         res["bpc_loss"] = bpc_loss
         
-        char_perplexity = get_char_perplexity_batch(token_ids, token_perplexity, decode)
+        char_perplexity = get_char_perplexity_batch(token_ids.to("cpu"), token_perplexity.to("cpu"), decode) # cpu
         res["char_perplexity"] = char_perplexity
         
     return res 
@@ -246,7 +246,8 @@ def inference(model, tokenizer,
               pad: bool = False,
               return_representation: bool = False,
               return_char_perplexity: bool = False,
-              device: str = "cuda"): # Issue: why should we assume 'texts' to have same length?
+              device: str = "cuda",
+              return_device: str = "cpu"): # Issue: why should we assume 'texts' to have same length?
     
     valid_text = text is not None and (isinstance(text, str) or isinstance(text, list))
     valid_batch = (input_ids is not None and target_ids is not None) and (input_ids.shape == target_ids.shape)
@@ -274,12 +275,12 @@ def inference(model, tokenizer,
         texts = [tokenizer.decode(token_ids[i].tolist()) for i in range(token_ids.size(0))]
     
     if pad: 
-        res = _pad_batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device)
+        res = _pad_batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device, return_device=return_device)
     else: 
-        res = batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device)
+        res = batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device, return_device=return_device)
     
     res['texts'] = texts
-    res["char_token_mask"] = ~torch.isin(token_ids.to("cpu"), torch.tensor(tokenizer.special_ids)) # character & merge tokens
+    res["char_token_mask"] = ~torch.isin(res["token_ids"], torch.tensor(tokenizer.special_ids).to(return_device)) # character & merge tokens
         
     return res
 

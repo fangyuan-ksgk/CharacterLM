@@ -122,13 +122,13 @@ def _prep_vocabulary_removal(tokens_to_remove):
 
 
 @timing_decorator
-def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, avoid_duplicate: bool = False):
+def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, avoid_duplicate: bool = False, cal_mask_device: str = "cpu"):
     """Prepares vocabulary change for text batch"""
     
     # print("Begin vocabulary change caching ...")
     t0 = time.time()
     # Get all required data in one inference pass
-    res = self.inference(text=texts, input_ids=input_ids, target_ids=target_ids, return_representation=True)
+    res = self.inference(text=texts, input_ids=input_ids, target_ids=target_ids, return_representation=True, return_device=cal_mask_device)
     input_ids, token_ids, token_perplexity, char_token_mask, reps = (
         res['input_ids'], res['token_ids'], 
         res['token_perplexity'], res['char_token_mask'], res['reps']
@@ -138,13 +138,19 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, 
     t1 = time.time()
     # Process removals and groupings in parallel if possible
     tokens_to_remove, remove_positions, remove_mask, remove_groups = self._detect_remove_tokens(
-        token_ids, token_perplexity, char_token_mask
+        token_ids, token_perplexity, char_token_mask, cal_mask_device=cal_mask_device
     )
     print(f" - Remove token detection took: {time.time() - t1:.4f} seconds")
     
     t2 = time.time()
+    
+    # load back to cpu for speedups 
+    token_ids = token_ids.to("cpu")
+    token_perplexity = token_perplexity.to("cpu")
+    char_token_mask = char_token_mask.to("cpu")
+    
     tokens_to_group, group_masks, token_groups, group_positions = self._detect_group_tokens(
-        token_ids, token_perplexity, char_token_mask, avoid_duplicate=avoid_duplicate
+        token_ids, token_perplexity, char_token_mask, avoid_duplicate=avoid_duplicate, cal_mask_device=cal_mask_device
     ) # consider duplicate here
     print(f" - Group token detection took: {time.time() - t2:.4f} seconds")
 

@@ -63,7 +63,8 @@ def detect_spike_token_batch(token_perplexity, quantile_threshold=0.80, perplexi
 
 import time 
 
-def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_threshold=0.80, perplexity_threshold=None, color='red', return_groups=True, char_token_mask=None):
+def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_threshold=0.80, perplexity_threshold=None, color='red', return_groups=True, char_token_mask=None,
+                              cal_mask_device: str = "cpu"):
     """ 
     Detect remove token in batch data 
     """
@@ -71,8 +72,8 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
     quantile_threshold = torch.quantile(token_perplexity, quantile_threshold, dim=1)
     loss_threshold = torch.maximum(quantile_threshold, torch.tensor(perplexity_threshold if perplexity_threshold is not None else 0.))
     spike_token_mask = token_perplexity > loss_threshold.unsqueeze(-1)
-    base_char_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.char_vocab.keys())))
-    leaf_token_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.leaf_token_ids)))
+    base_char_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.char_vocab.keys())).to(cal_mask_device))
+    leaf_token_mask = torch.isin(token_ids, torch.tensor(list(tokenizer.leaf_token_ids)).to(cal_mask_device))
     remove_token_mask = spike_token_mask & ~base_char_mask & leaf_token_mask # only remove leaf-tokens to avoid collapsing tokenization
     
     if char_token_mask is not None: 
@@ -137,7 +138,9 @@ def add_to_groups(curr_group, curr_group_positions, natural_groups, natural_grou
 
 
 # Natural token group: consecutive decrease in perplexity below threshold
-def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0.7, perplexity_threshold=None, char_token_mask=None): 
+def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0.7, perplexity_threshold=None, char_token_mask=None,
+                       cal_mask_device: str = "cpu"): 
+    
     quantile_threshold = torch.quantile(token_loss, quantile_threshold).item()
     threshold = min(quantile_threshold, perplexity_threshold if perplexity_threshold is not None else 99.)
     natural_group_positions = []
@@ -181,12 +184,14 @@ def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0
 def get_group_token_mask(token_loss, token_ids, cache_groups,
                          quantile_threshold=0.7, 
                          perplexity_threshold=None, 
-                         color='green', char_token_mask=None): 
+                         color='green', char_token_mask=None,
+                         cal_mask_device: str = "cpu"): 
     
     # group token position includes special tokens 
     group_tokens, group_token_positions = detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=quantile_threshold,
                                                              perplexity_threshold=perplexity_threshold,
-                                                             char_token_mask=char_token_mask)
+                                                             char_token_mask=char_token_mask,
+                                                             cal_mask_device=cal_mask_device)
     group_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
     groups = []
     for group in group_token_positions:
@@ -201,10 +206,12 @@ def get_group_token_mask(token_loss, token_ids, cache_groups,
 def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, 
                              perplexity_threshold=None, 
                              color='green', 
-                             char_token_mask=None): 
+                             char_token_mask=None,
+                             cal_mask_device: str = "cpu"): 
     """ 
     Detect group token in batch data 
     """
+    
     if token_perplexity.ndim == 1: 
         token_perplexity = token_perplexity.unsqueeze(0)
     
@@ -222,7 +229,8 @@ def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, 
                                                                                            quantile_threshold=quantile_threshold,
                                                                                            perplexity_threshold=perplexity_threshold,
                                                                                            color=color, 
-                                                                                           char_token_mask=char_token_mask_row)
+                                                                                           char_token_mask=char_token_mask_row,
+                                                                                           cal_mask_device=cal_mask_device)
         
         group_token_positions.append(group_token_positions_row)
         group_token_masks.append(group_token_masks_row)
