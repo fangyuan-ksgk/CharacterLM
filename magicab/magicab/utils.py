@@ -151,6 +151,7 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
                          device: str = "cuda"): 
     """ 
     Helper function to pad batch inference
+    For processing, we do it on CPU
     """
     input_ids = input_ids.to(device)
     target_ids = target_ids.to(device)
@@ -158,9 +159,13 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
     res = {"input_ids": input_ids}
     if return_representation: 
         logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
-        res["reps"] = reps
+        res["reps"] = reps.to("cpu")
     else: 
         logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
+
+    input_ids = input_ids.to("cpu")
+    target_ids = target_ids.to("cpu")
+    token_loss = token_loss.to("cpu")
 
     token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
     res["token_ids"] = token_ids
@@ -203,10 +208,15 @@ def batch_inference(model, tokenizer, input_ids, target_ids,
     res = {"input_ids": input_ids}
     if return_representation: 
         logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
+        reps = reps.to("cpu")
         res["reps"] = reps
     else: 
         logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
 
+    input_ids = input_ids.to("cpu")
+    target_ids = target_ids.to("cpu")
+    token_loss = token_loss.to("cpu")
+    
     token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
     res["token_ids"] = token_ids
     
