@@ -61,10 +61,13 @@ def detect_spike_token_batch(token_perplexity, quantile_threshold=0.80, perplexi
     return spike_token_positions, spike_token_mask
 
 
+import time 
+
 def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_threshold=0.80, perplexity_threshold=None, color='red', return_groups=True, char_token_mask=None):
     """ 
     Detect remove token in batch data 
     """
+    t0 = time.time()
     quantile_threshold = torch.quantile(token_perplexity, quantile_threshold, dim=1)
     loss_threshold = torch.maximum(quantile_threshold, torch.tensor(perplexity_threshold if perplexity_threshold is not None else 0.))
     spike_token_mask = token_perplexity > loss_threshold.unsqueeze(-1)
@@ -76,11 +79,15 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
         remove_token_mask = remove_token_mask & char_token_mask & leaf_token_mask
     
     remove_token_positions = [torch.nonzero(row)[:, 0].tolist() for row in remove_token_mask]
+    print(f"   :: Remove token mask calculation: {time.time() - t0:.4f} seconds")
     
+    t1 = time.time()
     tokens_to_remove = [] 
     for remove_token_mask_row, token_ids_row in zip(remove_token_mask, token_ids): 
         tokens_to_remove.append(token_ids_row[remove_token_mask_row].tolist())
+    print(f"   :: Remove token list appending loop: {time.time() - t1:.4f} seconds")
     
+    t2 = time.time()
     if return_groups: 
         remove_token_groups = []
         for remove_token_positions_row in remove_token_positions: 
@@ -89,7 +96,7 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
                 curr_group = position.item(), position.item() + 1, str(len(remove_token_groups_row) + 1), color
                 remove_token_groups_row.append(curr_group)
             remove_token_groups.append(remove_token_groups_row)
-    
+        print(f"   :: Remove token group appending loop: {time.time() - t2:.4f} seconds")
         return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
     
     return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
