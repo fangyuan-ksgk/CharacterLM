@@ -7,10 +7,10 @@ from torch.nn import functional as F
 
 def shift_token_loss(token_loss, return_tensor=True): 
     if len(token_loss.shape) == 1: 
-        token_perplexity = token_loss.detach().numpy()
+        token_perplexity = token_loss.to("cpu").numpy()
         token_perplexity = np.pad(token_perplexity, (1, 0), mode='constant', constant_values=0.)
     else: 
-        token_perplexity = token_loss.detach().numpy()
+        token_perplexity = token_loss.to("cpu").numpy()
         token_perplexity = np.pad(token_perplexity, [(0, 0), (1, 0)], mode='constant', constant_values=0.)
 
     if return_tensor: 
