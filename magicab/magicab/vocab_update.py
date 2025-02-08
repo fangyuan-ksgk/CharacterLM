@@ -122,7 +122,8 @@ def _prep_vocabulary_removal(tokens_to_remove):
 
 
 @timing_decorator
-def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, avoid_duplicate: bool = False, cal_mask_device: str = "cpu"):
+def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, avoid_duplicate: bool = False, 
+                             cal_mask_device: str = "cpu"):
     """Prepares vocabulary change for text batch"""
     
     # print("Begin vocabulary change caching ...")
