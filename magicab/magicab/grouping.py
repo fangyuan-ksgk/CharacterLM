@@ -115,6 +115,20 @@ def get_remove_token_mask(token_ids, token_loss, tok, quantile_threshold=0.80, p
     
     return remove_token_mask, remove_token_groups
 
+
+# 
+def add_to_groups(curr_group, curr_group_positions, natural_groups, natural_group_positions, cache_groups=None): 
+    if len(curr_group) > 1: 
+        if cache_groups is not None: 
+            non_duplicate_group = tuple(curr_group) not in cache_groups
+        else:
+            non_duplicate_group = True
+        if non_duplicate_group: 
+            natural_groups.append(curr_group)
+        natural_group_positions.append(curr_group_positions)
+    return natural_groups, natural_group_positions
+
+
 # Natural token group: consecutive decrease in perplexity below threshold
 def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0.7, perplexity_threshold=None, char_token_mask=None): 
     quantile_threshold = torch.quantile(token_loss, quantile_threshold).item()
@@ -133,11 +147,7 @@ def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0
                 valid_item = False
         
         if not valid_item: # group continuation breaks
-            if len(curr_group) > 1:
-                non_duplicate_group = tuple(curr_group) not in cache_groups
-                if non_duplicate_group: 
-                    natural_groups.append(curr_group)
-                    natural_group_positions.append(curr_group_positions)
+            natural_groups, natural_group_positions = add_to_groups(curr_group, curr_group_positions, natural_groups, natural_group_positions, cache_groups)
                     
             curr_group = []
             curr_group_positions = []
@@ -151,16 +161,12 @@ def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0
             curr_group.append(token_ids[i])
             curr_group_positions.append(i)
         else: 
-            if len(curr_group) > 1 and tuple(curr_group) not in cache_groups: 
-                natural_groups.append(curr_group)
-                natural_group_positions.append(curr_group_positions)
+            natural_groups, natural_group_positions = add_to_groups(curr_group, curr_group_positions, natural_groups, natural_group_positions, cache_groups)
             curr_group = []
             curr_group_positions = []
         i += 1
             
-    if len(curr_group) > 1 and tuple(curr_group) not in cache_groups:
-        natural_groups.append(curr_group)  
-        natural_group_positions.append(curr_group_positions)
+    natural_groups, natural_group_positions = add_to_groups(curr_group, curr_group_positions, natural_groups, natural_group_positions, cache_groups)
         
     return natural_groups, natural_group_positions
 
@@ -195,7 +201,7 @@ def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, 
     if token_perplexity.ndim == 1: 
         token_perplexity = token_perplexity.unsqueeze(0)
     
-    cached_tuples = set(cache_token_addition.keys())
+    cached_tuples = set(cache_token_addition.keys()) if cache_token_addition is not None else None
         
     tokens_to_group = []
     group_token_positions = []

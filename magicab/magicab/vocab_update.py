@@ -50,7 +50,7 @@ def timing_decorator(func):
         return result
     return wrapper
 
-@timing_decorator
+
 def _prep_vocabulary_addition(self, input_ids, tokens_to_group, group_token_positions, reps):
     """ 
     This ignores cached merges in magicab and re-process everything, redundant
@@ -108,7 +108,7 @@ def _prep_vocabulary_addition(self, input_ids, tokens_to_group, group_token_posi
     
     # Print timing summary
     for component, elapsed in timings.items():
-        print(f" - {component}: {elapsed:.4f} seconds")
+        print(f"   :: {component}: {elapsed:.4f} seconds")
     
     return token_addition, embed_cache, project_cache
 
@@ -122,7 +122,7 @@ def _prep_vocabulary_removal(tokens_to_remove):
 
 
 @timing_decorator
-def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None):
+def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, avoid_duplicate: bool = False):
     """Prepares vocabulary change for text batch"""
     
     # print("Begin vocabulary change caching ...")
@@ -144,7 +144,7 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None):
     
     t2 = time.time()
     tokens_to_group, group_masks, token_groups, group_positions = self._detect_group_tokens(
-        token_ids, token_perplexity, char_token_mask
+        token_ids, token_perplexity, char_token_mask, avoid_duplicate=avoid_duplicate
     ) # consider duplicate here
     print(f" - Group token detection took: {time.time() - t2:.4f} seconds")
 

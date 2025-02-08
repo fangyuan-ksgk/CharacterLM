@@ -46,8 +46,8 @@ class Magicab:
                     return_representation: bool = False, return_char_perplexity: bool = False): 
         return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation, return_char_perplexity, device=self.device)
     
-    def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False):         
-        _cache_vocabulary_change(self, text, input_ids, target_ids)
+    def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False, avoid_duplicate: bool = False):         
+        _cache_vocabulary_change(self, text, input_ids, target_ids, avoid_duplicate)
         
     def update_vocab(self, max_size_change: int = 500):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
@@ -89,7 +89,9 @@ class Magicab:
             
         # (c). Group token visualization 
         group_color = 'lightgreen'
-        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, self.token_addition, quantile_threshold=self.group_quantile_threshold, perplexity_threshold=self.group_perplexity_threshold, color=group_color, char_token_mask=char_token_mask)
+        tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, 
+                                                                                                          self.token_addition, 
+                                                                                                          quantile_threshold=self.group_quantile_threshold, perplexity_threshold=self.group_perplexity_threshold, color=group_color, char_token_mask=char_token_mask)
         char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, group_token_mask, token_groups, char_token_mask, decode, mask_color=group_color)
 
         file_name = "group"
@@ -120,12 +122,12 @@ class Magicab:
             
         return tokens_to_remove, remove_token_positions, remove_token_mask, remove_token_groups
 
-    def _detect_group_tokens(self, token_ids, token_perplexity, char_token_mask):
+    def _detect_group_tokens(self, token_ids, token_perplexity, char_token_mask, avoid_duplicate: bool = False):
         """Identifies sequences of tokens that should be merged"""
         return detect_group_token_batch(
             token_ids, 
             token_perplexity, 
-            cache_token_addition = self.token_addition,
+            cache_token_addition = self.token_addition if avoid_duplicate else None,
             quantile_threshold=self.group_quantile_threshold,
             perplexity_threshold=self.group_perplexity_threshold,
             char_token_mask=char_token_mask 
