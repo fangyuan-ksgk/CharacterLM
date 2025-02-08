@@ -109,6 +109,7 @@ def _prep_vocabulary_addition(self, input_ids, tokens_to_group, group_token_posi
     # Print timing summary
     for component, elapsed in timings.items():
         print(f"   :: {component}: {elapsed:.4f} seconds")
+        print(f"   :: {component}: per input row  {elapsed / len(input_ids):.4f} seconds")
     
     return token_addition, embed_cache, project_cache
 

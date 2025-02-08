@@ -4,6 +4,7 @@ import json, re
 from tqdm import tqdm  # Add this import at the top of the file
 from rust_tokenizer import PyETokenizer
 from copy import deepcopy
+import time
 
 def encode_char(text, special_tokens, special2idx, char2idx): 
     pattern = f"({'|'.join(re.escape(token) for token in special_tokens)})"
@@ -18,18 +19,110 @@ def encode_char(text, special_tokens, special2idx, char2idx):
             ids.extend(char2idx[c] for c in seg)
     return ids 
 
+
+class TokenTrie:
+    class Node:
+        def __init__(self):
+            self.children = {}  # char -> Node
+            self.token_id = None
+            self.is_end = False
+
+    def __init__(self):
+        self.root = self.Node()
+        self.id2token = {}  # id -> token string
+        self.token2id = {}  # token string -> id
+        self.merges = {}    # (id1, id2) -> merged_id
+        self.next_id = 0
+
+    def add_token(self, token: str, token_id: int = None):
+        if token in self.token2id:
+            return self.token2id[token]
+
+        if token_id is None:
+            token_id = self.next_id
+            self.next_id += 1
+
+        # Add to bidirectional mappings
+        self.id2token[token_id] = token
+        self.token2id[token] = token_id
+
+        # Add to trie
+        node = self.root
+        for char in token:
+            if char not in node.children:
+                node.children[char] = self.Node()
+            node = node.children[char]
+        node.is_end = True
+        node.token_id = token_id
+
+        return token_id
+
+    def add_merge(self, id1: int, id2: int):
+        token1 = self.id2token[id1]
+        token2 = self.id2token[id2]
+        merged = token1 + token2
+        merged_id = self.add_token(merged)
+        self.merges[(id1, id2)] = merged_id
+        return merged_id
+
+    def find_token(self, token: str) -> int:
+        return self.token2id.get(token)
+
+    def get_merge_result(self, id1: int, id2: int) -> int:
+        return self.merges.get((id1, id2))
+    
+    
   
-class ETokenizer(Tokenizer): 
+class ETokenizer: 
     """ 
     ETokenizer is a tokenizer that could be updated on-the-fly 
     """
     def __init__(self, char_vocab=False):
-        super().__init__(char_vocab)
+
+        self.special_tokens = ["<|endoftext|>", "<pad>"]
+        self._init_token_trie(char_vocab)
         
         self.use_char = bool(char_vocab)
         self.char_vocab = char_vocab
         self.char2idx = {c:i for i, c in char_vocab.items()}
         self.special_ids = list(self.special2idx.values())
+        self.token_trie = TokenTrie()
+        
+        # Initialize with char_vocab
+        for idx, char in char_vocab.items():
+            self.token_trie.add_token(char, idx)
+            
+    def _init_token_trie(self, char_vocab=False):
+        # Initialize TokenTrie with basic vocabulary
+        self.token_trie = TokenTrie()
+        self.special2idx = {}
+        
+        # Add byte-level or character vocabulary
+        if not char_vocab:
+            # Basic byte-level vocabulary (size 256)
+            for idx in range(256):
+                self.token_trie.add_token(bytes([idx]), idx)
+        else:
+            # Use provided character vocabulary
+            for idx, token in char_vocab.items():
+                self.token_trie.add_token(token, idx)
+        
+        # Add special tokens
+        vocab_size = 256 if not char_vocab else len(char_vocab)
+        for idx, special in enumerate(self.special_tokens):
+            special_idx = vocab_size + idx
+            self.token_trie.add_token(special, special_idx)
+            self.special2idx[special] = special_idx
+        
+        return self.token_trie.id2token
+
+    @property
+    def vocab(self):
+        return self.token_trie.id2token
+
+    @property
+    def merges(self):
+        return self.token_trie.merges
 
     @property 
     def rust_tokenizer(self): 
@@ -103,70 +196,58 @@ class ETokenizer(Tokenizer):
         return self._encode(ids)
             
             
+    def _process_token_pair(self, prefix_token_idx, curr_token_idx, *args):
+        # Check if merge already exists
+        merged_id = self.token_trie.get_merge_result(prefix_token_idx, curr_token_idx)
+        if merged_id is not None:
+            return merged_id, self.token_trie.next_id, None
+
+        # Create new merge
+        merged_id = self.token_trie.add_merge(prefix_token_idx, curr_token_idx)
+        return merged_id, self.token_trie.next_id, (merged_id, curr_token_idx)
+
     def _add_tokens(self, tokens_to_group, group_positions=None):
-        # Use direct dictionary references instead of deepcopy
-        vocab = dict(self.vocab)  # Shallow copy is sufficient
+        vocab = dict(self.vocab)
         merges = dict(self.merges)
-        
-        # Track the next available index to avoid repeated max() calls
         next_idx = max(vocab.keys()) + 1
         
-        eom_tokens = [] 
-        pair_token_groups = []
-        pair_token_positions = []
-        
-        # Pre-allocate lists with estimated size if possible
-        estimated_size = sum(len(group) - 1 for group in tokens_to_group)
         eom_tokens = []
         pair_token_groups = []
         pair_token_positions = [] if group_positions is None else []
         
         for group_idx, token_group in enumerate(tokens_to_group):
-            if len(token_group) == 1:
+            if len(token_group) <= 1:
                 continue
-            
-            length = len(token_group) - 1
-            l, r = 0, 1
-            prefix_token_idx = token_group[l].item()
-            prefix_token = vocab[prefix_token_idx]
-            
-            while l < r:
-                curr_token_idx = token_group[r].item()             
-                curr_token = vocab[curr_token_idx]
                 
-                # Use join() or string builder pattern for better performance
-                new_token = prefix_token + curr_token
+            # Process tokens in a sliding window
+            prefix_idx = token_group[0].item()
+            for i in range(1, len(token_group)):
+                curr_idx = token_group[i].item()
                 
-                if new_token in vocab:  # Direct dictionary lookup
-                    prefix_token_idx = vocab[new_token]
-                else:
-                    vocab[next_idx] = new_token
-                    merges[tuple([prefix_token_idx, curr_token_idx])] = next_idx
-                    
-                    prefix_token_idx = next_idx
-                    next_idx += 1  # Increment counter instead of using max()
-                    
-                    eom_tokens.append(curr_token_idx)
-                    pair_token_groups.append((prefix_token_idx, curr_token_idx))
-                    
+                # Process the token pair
+                merged_id, next_idx, pair_info = self._process_token_pair(
+                    prefix_idx, curr_idx, vocab, merges, next_idx
+                )
+                
+                # Record new pair if created
+                if pair_info:
+                    eom_tokens.append(curr_idx)
+                    pair_token_groups.append(pair_info)
                     if group_positions is not None:
-                        pair_token_positions.append((group_positions[group_idx][l], 
-                                                  group_positions[group_idx][r]))
-                
-                l += 1
-                r = min(r+1, length)
-                prefix_token = new_token
-                
+                        pair_token_positions.append((
+                            group_positions[group_idx][i-1],
+                            group_positions[group_idx][i]
+                        ))
+    
         return vocab, merges, eom_tokens, pair_token_groups, pair_token_positions
-        
 
     def add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
      
         vocab, merges, eom_tokens, pair_token_groups, pair_token_positions = self._add_tokens(tokens_to_group, group_positions)
                 
         if in_place: 
-            self.vocab = vocab
-            self.merges = merges
+            self.token_trie.id2token = vocab
+            self.token_trie.merges = merges
         
         if group_positions is not None:
             return eom_tokens, pair_token_groups, pair_token_positions
@@ -190,17 +271,25 @@ class ETokenizer(Tokenizer):
                           if idx != token_id}
         return tokens_removed
     
-    def remove_tokens(self, tokens_to_remove, in_place=True): 
+    def remove_tokens(self, tokens_to_remove, in_place=True):
+        if not in_place:
+            new_tokenizer = self.copy()
+            new_tokenizer.remove_tokens(tokens_to_remove)
+            return new_tokenizer.token_trie.id2token, new_tokenizer.token_trie.merges
+            
+        # Remove from id2token and token2id
+        for token_id in tokens_to_remove:
+            if token_id in self.token_trie.id2token:
+                token = self.token_trie.id2token[token_id]
+                del self.token_trie.id2token[token_id]
+                del self.token_trie.token2id[token]
         
-        new_vocab, new_merges = _remove_tokens(self, tokens_to_remove)
-        
-        if in_place: 
-            self.vocab = new_vocab
-            self.merges = new_merges
-        else: 
-            return new_vocab, new_merges
-        
-                 
+        # Remove from merges
+        self.token_trie.merges = {
+            pair: idx for pair, idx in self.token_trie.merges.items()
+            if idx not in tokens_to_remove
+        }
+
     def split_tokens(self, tokens_to_split):
         """
         Remove tokens from vocabulary if their byte length is > 1
@@ -221,29 +310,28 @@ class ETokenizer(Tokenizer):
         # Convert data to JSON-serializable format
         data = {
             'char_vocab': {str(k): v for k, v in self.char_vocab.items()},
-            'vocab': {str(k): v for k, v in self.vocab.items()},
-            'merges': {f"{k[0]},{k[1]}": v for k, v in self.merges.items()}
+            'id2token': {str(k): v for k, v in self.token_trie.id2token.items()},
+            'merges': {f"{k[0]},{k[1]}": v for k, v in self.token_trie.merges.items()}
         }
-        # Save to file
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     
     @classmethod
     def load(cls, path):
-        # Load from file
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Convert data back to original format
         char_vocab = {int(k): v for k, v in data['char_vocab'].items()}
-        vocab = {int(k): v for k, v in data['vocab'].items()}
-        merges = {tuple(map(int, k.split(','))): v 
-                 for k, v in data['merges'].items()}
-        
-        # Create instance and set attributes
         inst = cls(char_vocab)
-        inst.vocab = vocab
-        inst.merges = merges
+        
+        # Restore tokens and merges
+        for k, v in data['id2token'].items():
+            inst.token_trie.add_token(v, int(k))
+        
+        for k, v in data['merges'].items():
+            id1, id2 = map(int, k.split(','))
+            inst.token_trie.merges[(id1, id2)] = v
+            
         return inst
     
     def sanity_check(self, text = "Hello, world!"):
@@ -252,8 +340,6 @@ class ETokenizer(Tokenizer):
         
         
     def copy(self):
-        from copy import deepcopy
         c = ETokenizer(deepcopy(self.char_vocab))
-        c.vocab = deepcopy(self.vocab)
-        c.merges = deepcopy(self.merges)
+        c.token_trie = deepcopy(self.token_trie)
         return c

@@ -235,6 +235,9 @@ class Magicab:
 from tqdm import tqdm 
 
 def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_size_change: int = 500): 
+    """ 
+    Updates the Magicab vocabulary based on the training data
+    """
     data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
 
     total_batches = len(data) // (block_size * batch_size) + 1
@@ -251,9 +254,12 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_s
             x, y = x.to(device_type), y.to(device_type)
             
         # cache vocabulary change 
-        magicab.cache_vocab_change(input_ids=x, target_ids=y)
+        magicab.cache_vocab_change(input_ids=x, target_ids=y,
+                                   avoid_duplicate=False,
+                                   cal_mask_device=device_type)
 
     magicab.update_vocab(max_size_change=max_size_change) # update tokenizer & model
+    
     return magicab
 
 

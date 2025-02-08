@@ -6,7 +6,7 @@ __version__ = "0.1.0"
 __author__ = "Fangyuan Yu"
 
 from .magicab import Magicab, update_magicab
-from .etoken import ETokenizer 
+from .etoken import ETokenizer
 from .vis import *
 from .utils import *
 

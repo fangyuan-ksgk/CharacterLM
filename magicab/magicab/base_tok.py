@@ -107,7 +107,7 @@ class Tokenizer:
 
     def __init__(self, char_vocab=False):
         # default: vocab size of 256 (all bytes), no merges, no patterns
-        self.merges = {} # (int, int) -> int
+        # self.merges = {} # (int, int) -> int
         self.pattern = "" # str
         self.special_tokens = SPECIAL_TOKENS
         self.special2idx = {}
@@ -138,8 +138,6 @@ class Tokenizer:
             self.special2idx[special] = vocab_size + idx
             
         return vocab
-
-    
 
     def save(self, file_prefix):
         """
