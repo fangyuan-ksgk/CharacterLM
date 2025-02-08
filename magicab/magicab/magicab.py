@@ -17,7 +17,7 @@ class Magicab:
                  spike_perplexity_threshold=None, 
                  group_perplexity_threshold=None, 
                  checkpoint_dir: str = "checkpoint/base",
-                 device: str = "cuda"):
+                 device: str = "cuda" if torch.cuda.is_available() else "mps"):
         self.model = model
         self.tokenizer = tokenizer
         self.spike_quantile_threshold = spike_quantile_threshold

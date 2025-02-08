@@ -157,11 +157,12 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
     target_ids = target_ids.to(device)
     
     res = {"input_ids": input_ids}
-    if return_representation: 
-        logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
-        res["reps"] = reps.to("cpu")
-    else: 
-        logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
+    with torch.no_grad():
+        if return_representation: 
+            logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
+            res["reps"] = reps.to("cpu")
+        else: 
+            logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
 
     input_ids = input_ids.to("cpu")
     target_ids = target_ids.to("cpu")
@@ -202,17 +203,20 @@ def batch_inference(model, tokenizer, input_ids, target_ids,
     """ 
     Miscellaneous results from model inference
     """
+    res = {}
+    
+    # Move tensors to device
     input_ids = input_ids.to(device)
     target_ids = target_ids.to(device)
     
-    res = {"input_ids": input_ids}
-    if return_representation: 
-        logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True) # loss is provided as an 'average' loss per token --- I want singular loss per token 
-        reps = reps.to("cpu")
-        res["reps"] = reps
-    else: 
-        logits, token_loss = model(input_ids, targets=target_ids, reduction='none') # loss is provided as an 'average' loss per token --- I want singular loss per token 
-
+    # Use torch.no_grad() to disable gradient tracking
+    with torch.no_grad():
+        if return_representation:
+            logits, token_loss, reps = model(input_ids, targets=target_ids, reduction='none', return_representation=True)
+            res["reps"] = reps.to("cpu")
+        else: 
+            logits, token_loss = model(input_ids, targets=target_ids, reduction='none')
+    
     input_ids = input_ids.to("cpu")
     target_ids = target_ids.to("cpu")
     token_loss = token_loss.to("cpu")
@@ -259,7 +263,7 @@ def inference(model, tokenizer,
             pad_token_id = tokenizer.special2idx["<pad>"]
             token_ids_list = [F.pad(token_ids, pad=(max_token_len - token_ids.shape[0], 0), mode='constant', value=pad_token_id) for token_ids in token_ids_list]
                     
-        token_ids = torch.stack(token_ids_list, dim=0)
+        token_ids = torch.stack(token_ids_list, dim=0).to(device)
         
         input_ids = token_ids[:, :-1]
         target_ids = token_ids[:, 1:]
@@ -274,7 +278,7 @@ def inference(model, tokenizer,
         res = batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device)
     
     res['texts'] = texts
-    res["char_token_mask"] = ~torch.isin(token_ids, torch.tensor(tokenizer.special_ids)) # character & merge tokens
+    res["char_token_mask"] = ~torch.isin(token_ids.to("cpu"), torch.tensor(tokenizer.special_ids)) # character & merge tokens
         
     return res
 
