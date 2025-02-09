@@ -220,9 +220,9 @@ class ETokenizer:
                 continue
                 
             # Process tokens in a sliding window
-            prefix_idx = token_group[0].item()
+            prefix_idx = token_group[0]
             for i in range(1, len(token_group)):
-                curr_idx = token_group[i].item()
+                curr_idx = token_group[i]
                 
                 # Process the token pair
                 merged_id, next_idx, pair_info = self._process_token_pair(
