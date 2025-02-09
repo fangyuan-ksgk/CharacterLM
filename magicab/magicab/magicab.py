@@ -232,6 +232,10 @@ class Magicab:
         
         return tokenizer_size_match and all_sizes_match
     
+    def save(self): 
+        """ 
+        Save model checkpoint & tokenizer
+        """
     
 from tqdm import tqdm 
 
@@ -287,3 +291,37 @@ def get_batch(split, data_dir, block_size, batch_size, device_type, device):
     else:
         x, y = x.to(device), y.to(device)
     return x, y
+
+
+def save_magicab(checkpoint, magicab, 
+                 out_dir,
+                 device="mps" if not torch.cuda.is_available() else "cuda"): 
+    
+    orig_model_args = checkpoint['model_args'] # update on model args
+    new_model_args = orig_model_args.copy()
+    new_model_args['vocab_size'] = magicab.tokenizer.vocab_size
+    
+    new_val_loss = torch.tensor(0.0).to(device)
+    new_iter_num = 0
+    new_config = checkpoint['config']
+    
+    new_model = magicab.model 
+    new_tokenizer = magicab.tokenizer
+    new_optimizer = new_model.configure_optimizers(checkpoint['config']['weight_decay'], checkpoint['config']['learning_rate'], (checkpoint['config']['beta1'], checkpoint['config']['beta2']), device_type=device)
+     
+    os.makedirs(out_dir, exist_ok=True)
+    model_ckpt_path = os.path.join(out_dir, 'ckpt.pt')
+    tokenizer_path = os.path.join(out_dir, 'tokenizer.json')
+    
+    new_checkpoint = {
+        "model": new_model.state_dict(), 
+        "optimizer": new_optimizer.state_dict(), 
+        "model_args": new_model_args, 
+        "iter_num": new_iter_num, 
+        "best_val_loss": new_val_loss, 
+        "config": new_config,
+        "tokenizer_path": tokenizer_path
+    }
+    
+    torch.save(new_checkpoint, model_ckpt_path)
+    new_tokenizer.save(tokenizer_path)

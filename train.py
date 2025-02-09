@@ -139,7 +139,7 @@ def get_batch(split):
 iter_num = 0
 best_val_loss = 1e9
 
-# attempt to derive vocab_size from the dataset
+# vocab size initialization
 meta_path = os.path.join(data_dir, 'meta.pkl')
 meta_vocab_size = None
 if os.path.exists(meta_path):
@@ -147,10 +147,8 @@ if os.path.exists(meta_path):
         meta = pickle.load(f)
     meta_vocab_size = meta['vocab_size']
     print(f"found vocab_size = {meta_vocab_size} (inside {meta_path})")
-
-# Magicab: load E-tokenizer 
-tokenizer = ETokenizer(char_vocab=meta['itos'])
-
+    
+    
 # model init
 model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
                   bias=bias, vocab_size=None, dropout=dropout) # start with model_args from command line
@@ -219,7 +217,13 @@ if compile:
 if ddp:
     model = DDP(model, device_ids=[ddp_local_rank])
     
-# Magicab: initialize magicab object
+# ETokenizer initialization 
+if checkpoint is not None: 
+    tokenizer = ETokenizer.load(checkpoint['tokenizer_path']) # load from checkpoint (model & tokenizer saved together)
+else: 
+    tokenizer = ETokenizer(char_vocab=meta['itos']) # load raw tokenizer from data meta information
+    
+# Magicab initialization
 magicab = Magicab(model=model, tokenizer=tokenizer, checkpoint_dir=out_dir)
 
 # helps estimate an arbitrarily accurate loss over either split using many batches
@@ -269,11 +273,6 @@ local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
 while True:
-    
-    # TODO: update model & tokenizer with Magicab | tokenizer should be used to update the 'data.bin' file, too
-    if iter_num % magicab_interval == 0 and iter_num > 0:  
-        update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_size_change=2000)
-        prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer) # in-place update on trianing data 
     
     # determine and set the learning rate for this iteration
     lr = get_lr(iter_num) if decay_lr else learning_rate

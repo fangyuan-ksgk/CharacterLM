@@ -117,18 +117,13 @@ def prepare_enwiki_data(clean=False, tokenizer=None):
     test_ids.tofile(os.path.join(data_dir, 'test.bin'))
 
     # save meta information
-    if tokenizer is None:
-        meta = {
-            'vocab_size': vocab_size,
-            'itos': itos,
-            'stoi': stoi,
-        }
-    else:
-        meta = {
-            'vocab_size': vocab_size,
-            'itos': tokenizer.char_vocab,
-            'stoi': {v:k for k, v in tokenizer.char_vocab.items()},
-        }
+    # tokenizer info saved together with data ... we want to change this perhaps? 
+    # in initialization stage, we should load this, but 'resume' should load tokenizer from other place
+    meta = {
+        'vocab_size': vocab_size,
+        'itos': tokenizer.char_vocab,
+        'stoi': {v:k for k, v in tokenizer.char_vocab.items()},
+    }
         
     with open(os.path.join(data_dir, 'meta.pkl'), 'wb') as f:
         pickle.dump(meta, f)
