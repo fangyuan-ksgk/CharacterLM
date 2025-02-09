@@ -66,11 +66,10 @@ if load_meta:
     magicab = Magicab(tokenizer=tokenizer, model=model, checkpoint_dir=out_dir)
 
 # Update Magicab Vocabulary & Training Data 
-from magicab import update_magicab
+from magicab import update_magicab, save_magicab
 from data.enwiki.util import prepare_enwiki_data
 
 data_dir = os.path.join('data', 'enwiki')
-
 
 # Update Magicab Vocabulary 
 update_magicab(magicab, 
@@ -83,8 +82,7 @@ update_magicab(magicab,
 # Both Tokenizer and Model will be updated, so we'd need to save them 
 
 # Update Training Data 
-prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer) # relabel training data with updated vocabulary
+prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir) # relabel training data with updated vocabulary
 
 # Save model checkpoint & tokenizer 
-from magicab import save_magicab
-save_magicab(checkpoint, magicab, out_dir)
+save_magicab(checkpoint, magicab, new_dir)
