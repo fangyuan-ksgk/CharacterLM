@@ -10,15 +10,18 @@ from data.enwiki.util import prepare_enwiki_data
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
 out_dir = 'out' # ignored if init_from is not 'resume'
+new_dir = "new_out"
 device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
 compile = False # use PyTorch 2.0 to compile the model to be faster
+block_size=256 # context length of model 
+batch_size=256 # batch size of training data 
 exec(open('configurator.py').read()) # overrides from command line or config file
 # -----------------------------------------------------------------------------
 
 torch.backends.cuda.matmul.allow_tf32 = True # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True # allow tf32 on cudnn
-device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
+device_type = 'cuda' if 'cuda' in device else 'mps' if 'mps' in device else 'cpu' # for later use in torch.autocast
 ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
 ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
 
@@ -67,17 +70,15 @@ from magicab import update_magicab
 from data.enwiki.util import prepare_enwiki_data
 
 data_dir = os.path.join('data', 'enwiki')
-block_size=256
-batch_size=4096
-device_type='cuda'
+
 
 # Update Magicab Vocabulary 
 update_magicab(magicab, 
                data_dir, 
-               block_size = 256, 
-               batch_size = 4096, 
-               device_type = 'cuda', 
-               max_size_change = 2000) # update vocabulary
+               block_size=block_size, 
+               batch_size=batch_size, 
+               device_type=device,
+               max_size_change=2000)
 
 # Both Tokenizer and Model will be updated, so we'd need to save them 
 
