@@ -203,84 +203,85 @@ def get_group_token_mask(token_loss, token_ids, cache_groups,
     return group_tokens, group_token_positions, group_token_mask, groups
 
 
-def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition=None, quantile_threshold=0.7, 
-                           perplexity_threshold=None, 
-                           color='green', 
-                           char_token_mask=None,
-                           cal_mask_device: str = "cpu"): 
+def detect_group_token_batch_(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, 
+                             perplexity_threshold=None, 
+                             color='green', 
+                             char_token_mask=None,
+                             cal_mask_device: str = "cpu"): 
     """ 
-    Vectorized implementation for detecting group tokens in batch data.
-    First token in each group can have any perplexity value.
-    Subsequent tokens must have decreasing perplexity below threshold.
+    Detect group token in batch data 
     """
+    
     if token_perplexity.ndim == 1: 
         token_perplexity = token_perplexity.unsqueeze(0)
     
-    # Calculate quantile threshold for entire batch at once
-    batch_quantile = torch.quantile(token_perplexity, quantile_threshold, dim=1)
-    threshold = torch.minimum(
-        batch_quantile,
-        torch.tensor(perplexity_threshold if perplexity_threshold is not None else 99.)
-    ).unsqueeze(-1)
-    
-    # Calculate decreasing mask using vectorized operations
-    perp_shift = torch.cat([token_perplexity[:, :1], token_perplexity[:, :-1]], dim=1)
-    decreasing_mask = (token_perplexity <= perp_shift) & (token_perplexity < threshold)
-    
-    if char_token_mask is not None:
-        decreasing_mask = decreasing_mask & char_token_mask
-    
-    group_token_masks = []
-    groups = []
+    cached_tuples = set(cache_token_addition.keys()) if cache_token_addition is not None else None
+        
     tokens_to_group = []
     group_token_positions = []
-    
-    for batch_idx, (seq_mask, seq_ids, seq_perp) in enumerate(zip(decreasing_mask, token_ids, token_perplexity)):
-        curr_groups = []
-        curr_positions = []
-        curr_tokens = []
+    group_token_masks = []
+    groups = []
+    for token_ids_row, token_perp, char_token_mask_row in zip(token_ids, token_perplexity, char_token_mask):
+        # avoid duplicate token group detection (in cached groups will be skipped)
+        tokens_to_group_row, group_token_positions_row, group_token_masks_row, group_row = get_group_token_mask(token_loss=token_perp,
+                                                                                           token_ids=token_ids_row,
+                                                                                           cache_groups=cached_tuples,
+                                                                                           quantile_threshold=quantile_threshold,
+                                                                                           perplexity_threshold=perplexity_threshold,
+                                                                                           color=color, 
+                                                                                           char_token_mask=char_token_mask_row,
+                                                                                           cal_mask_device=cal_mask_device)
         
-        # Track current group
-        current_group_start = None
-        last_perp = float('inf')
+        group_token_positions.append(group_token_positions_row)
+        group_token_masks.append(group_token_masks_row)
+        groups.append(group_row)
+        tokens_to_group.append(tokens_to_group_row)
         
-        # Iterate through sequence to build groups
-        for i in range(len(seq_mask)):
-            if current_group_start is None:
-                # Start new group - first token has no conditions
-                if char_token_mask is None or char_token_mask[batch_idx][i]:
-                    current_group_start = i
-                    last_perp = seq_perp[i]
-            else:
-                # Check conditions for continuing group
-                valid_token = char_token_mask is None or char_token_mask[batch_idx][i]
-                if valid_token and seq_perp[i] < threshold[batch_idx] and seq_perp[i] <= last_perp:
-                    last_perp = seq_perp[i]
-                else:
-                    # End group if conditions not met
-                    if i - current_group_start > 1:  # Only keep groups of size > 1
-                        curr_groups.append((current_group_start, i, str(len(curr_groups) + 1), color))
-                        curr_positions.append(list(range(current_group_start, i)))
-                        curr_tokens.append(seq_ids[current_group_start:i].tolist())
-                    current_group_start = None if not valid_token else i
-                    last_perp = seq_perp[i] if valid_token else float('inf')
-        
-        # Handle last group
-        if current_group_start is not None and len(seq_mask) - current_group_start > 1:
-            curr_groups.append((current_group_start, len(seq_mask), str(len(curr_groups) + 1), color))
-            curr_positions.append(list(range(current_group_start, len(seq_mask))))
-            curr_tokens.append(seq_ids[current_group_start:].tolist())
-        
-        # Create mask from groups
-        batch_mask = torch.zeros_like(seq_mask)
-        for start, end, _, _ in curr_groups:
-            batch_mask[start:end] = True
-        
-        groups.append(curr_groups)
-        group_token_positions.append(curr_positions)
-        tokens_to_group.append(curr_tokens)
-        group_token_masks.append(batch_mask)
-    
-    group_token_masks = torch.stack(group_token_masks, dim=0)
+    group_token_masks = torch.stack(group_token_masks, axis=0)
     
     return tokens_to_group, group_token_masks, groups, group_token_positions
+
+
+import concurrent.futures
+from functools import partial
+
+def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition=None, quantile_threshold=0.7, 
+                             perplexity_threshold=None, 
+                             color='green', 
+                             char_token_mask=None,
+                             cal_mask_device: str = "cpu",
+                             max_workers=4): 
+    """ 
+    Detect group token in batch data with parallel processing
+    """
+    if token_perplexity.ndim == 1: 
+        token_perplexity = token_perplexity.unsqueeze(0)
+        
+    # Create a partial function with fixed arguments
+    process_row = partial(
+        get_group_token_mask,
+        cache_groups=cache_token_addition,
+        quantile_threshold=quantile_threshold,
+        perplexity_threshold=perplexity_threshold,
+        color=color,
+        cal_mask_device=cal_mask_device
+    )
+    
+    # Process batch using thread pool
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(
+            lambda x: process_row(
+                token_loss=x[0],
+                token_ids=x[1],
+                char_token_mask=x[2]
+            ),
+            zip(token_perplexity, token_ids, char_token_mask)
+        ))
+    
+    # Unpack results
+    tokens_to_group, group_token_positions, group_token_masks, groups = zip(*results)
+    
+    # Convert list of tensors to single stacked tensor
+    group_token_masks = torch.stack(list(group_token_masks), dim=0)
+    
+    return list(tokens_to_group), group_token_masks, list(groups), list(group_token_positions)
