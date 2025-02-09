@@ -203,7 +203,7 @@ def get_group_token_mask(token_loss, token_ids, cache_groups,
     return group_tokens, group_token_positions, group_token_mask, groups
 
 
-def detect_group_token_batch_(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, 
+def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, 
                              perplexity_threshold=None, 
                              color='green', 
                              char_token_mask=None,
@@ -240,49 +240,3 @@ def detect_group_token_batch_(token_ids, token_perplexity, cache_token_addition,
     group_token_masks = torch.stack(group_token_masks, axis=0)
     
     return tokens_to_group, group_token_masks, groups, group_token_positions
-
-
-import concurrent.futures
-from functools import partial
-import multiprocessing
-
-def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition=None, quantile_threshold=0.7, 
-                             perplexity_threshold=None, 
-                             color='green', 
-                             char_token_mask=None,
-                             cal_mask_device: str = "cpu",
-                             max_workers=int(multiprocessing.cpu_count() * 0.8)): 
-    """ 
-    Detect group token in batch data with parallel processing
-    """
-    if token_perplexity.ndim == 1: 
-        token_perplexity = token_perplexity.unsqueeze(0)
-        
-    # Create a partial function with fixed arguments
-    process_row = partial(
-        get_group_token_mask,
-        cache_groups=cache_token_addition,
-        quantile_threshold=quantile_threshold,
-        perplexity_threshold=perplexity_threshold,
-        color=color,
-        cal_mask_device=cal_mask_device
-    )
-    
-    # Process batch using thread pool
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(
-            lambda x: process_row(
-                token_loss=x[0],
-                token_ids=x[1],
-                char_token_mask=x[2]
-            ),
-            zip(token_perplexity, token_ids, char_token_mask)
-        ))
-    
-    # Unpack results
-    tokens_to_group, group_token_positions, group_token_masks, groups = zip(*results)
-    
-    # Convert list of tensors to single stacked tensor
-    group_token_masks = torch.stack(list(group_token_masks), dim=0)
-    
-    return list(tokens_to_group), group_token_masks, list(groups), list(group_token_positions)
