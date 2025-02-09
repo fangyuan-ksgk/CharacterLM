@@ -28,7 +28,9 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
-from magicab import ETokenizer, Magicab
+from magicab import ETokenizer, Magicab, update_magicab
+from data.enwiki.util import prepare_enwiki_data
+
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
@@ -269,13 +271,9 @@ running_mfu = -1.0
 while True:
     
     # TODO: update model & tokenizer with Magicab | tokenizer should be used to update the 'data.bin' file, too
-    if iter_num % magicab_interval == 0 and iter_num > 0: 
-        # model, tokenizer = magicab.update_vocabulary(text) # Cache change via looping through dataset, then update tokenizer
-        # update_dataset(tokenizer)
-        
-        from data.enwiki.util import prepare_enwiki_data
+    if iter_num % magicab_interval == 0 and iter_num > 0:  
+        update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_size_change=2000)
         prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer) # in-place update on trianing data 
-        
     
     # determine and set the learning rate for this iteration
     lr = get_lr(iter_num) if decay_lr else learning_rate
