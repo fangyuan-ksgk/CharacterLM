@@ -135,13 +135,14 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, 
         res['input_ids'], res['token_ids'], 
         res['token_perplexity'], res['char_token_mask'], res['reps']
     )
-    print(f" - Inference took: {time.time() - t0:.4f} seconds")
+    # print(f" - Inference took: {time.time() - t0:.4f} seconds")
 
     t1 = time.time()
     # Process removals and groupings in parallel if possible
     tokens_to_remove, remove_positions, remove_mask, remove_groups = self._detect_remove_tokens(
         token_ids, token_perplexity, char_token_mask, cal_mask_device=cal_mask_device
     )
+    
     print(f" - Remove token detection took: {time.time() - t1:.4f} seconds")
     
     t2 = time.time()
