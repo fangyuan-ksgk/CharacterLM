@@ -244,13 +244,14 @@ def detect_group_token_batch_(token_ids, token_perplexity, cache_token_addition,
 
 import concurrent.futures
 from functools import partial
+import multiprocessing
 
 def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition=None, quantile_threshold=0.7, 
                              perplexity_threshold=None, 
                              color='green', 
                              char_token_mask=None,
                              cal_mask_device: str = "cpu",
-                             max_workers=4): 
+                             max_workers=int(multiprocessing.cpu_count() * 0.8)): 
     """ 
     Detect group token in batch data with parallel processing
     """
