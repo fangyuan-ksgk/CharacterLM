@@ -245,7 +245,12 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_s
 
     # Loop through dataset in batches
     for i in tqdm(range(total_batches), desc="Updating Magicab Vocabulary"): 
+        
         ix = i * (block_size * batch_size) + np.arange(batch_size) * block_size
+    
+        if (i + 1) * (block_size * batch_size) > len(data):
+            ix = ix % len(data)
+            
         x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
         y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
         if device_type == 'cuda':
