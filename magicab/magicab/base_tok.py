@@ -431,4 +431,3 @@ class RegexTokenizer(Tokenizer):
                 # this is an ordinary sequence, encode it normally
                 ids.extend(self.encode_ordinary(part))
         return ids
-    

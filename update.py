@@ -79,7 +79,9 @@ update_magicab(magicab,
                device_type=device,
                max_size_change=2000)
 
-# Both Tokenizer and Model will be updated, so we'd need to save them 
+print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size) # Issue : not actually updated ... 
+
+# Issue saved tokenizer is the base one, it's not updated ? 
 
 # Update Training Data 
 prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir) # relabel training data with updated vocabulary

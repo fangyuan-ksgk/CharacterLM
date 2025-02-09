@@ -1,5 +1,4 @@
-from .base_tok import get_valid_stats, merge, Tokenizer
-from .base_tok import _remove_tokens 
+from .base_tok import get_valid_stats, merge
 import json, re
 from tqdm import tqdm  # Add this import at the top of the file
 from rust_tokenizer import PyETokenizer
@@ -225,12 +224,14 @@ class ETokenizer:
                 curr_idx = token_group[i]
                 
                 # Process the token pair
-                merged_id, next_idx, pair_info = self._process_token_pair(
-                    prefix_idx, curr_idx, vocab, merges, next_idx
+                merged_id, next_id, pair_info = self._process_token_pair(
+                    prefix_idx, curr_idx
                 )
                 
                 # Record new pair if created
                 if pair_info:
+                    vocab[next_id] = vocab[prefix_idx] + vocab[curr_idx]
+                    merges[pair_info] = next_id
                     eom_tokens.append(curr_idx)
                     pair_token_groups.append(pair_info)
                     if group_positions is not None:
@@ -238,6 +239,8 @@ class ETokenizer:
                             group_positions[group_idx][i-1],
                             group_positions[group_idx][i]
                         ))
+                
+                prefix_idx = merged_id
     
         return vocab, merges, eom_tokens, pair_token_groups, pair_token_positions
 
