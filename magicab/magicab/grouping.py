@@ -124,84 +124,7 @@ def get_remove_token_mask(token_ids, token_loss, tok, quantile_threshold=0.80, p
     return remove_token_mask, remove_token_groups
 
 
-# 
-def add_to_groups(curr_group, curr_group_positions, natural_groups, natural_group_positions, cache_groups=None): 
-    if len(curr_group) > 1: 
-        if cache_groups is not None: 
-            non_duplicate_group = tuple(curr_group) not in cache_groups
-        else:
-            non_duplicate_group = True
-        if non_duplicate_group: 
-            natural_groups.append(curr_group)
-        natural_group_positions.append(curr_group_positions)
-    return natural_groups, natural_group_positions
-
-
-# Natural token group: consecutive decrease in perplexity below threshold
-def detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=0.7, perplexity_threshold=None, char_token_mask=None,
-                       cal_mask_device: str = "cpu"): 
-    
-    quantile_threshold = torch.quantile(token_loss, quantile_threshold).item()
-    threshold = min(quantile_threshold, perplexity_threshold if perplexity_threshold is not None else 99.)
-    natural_group_positions = []
-    natural_groups = []
-    curr_group_positions = []
-    curr_group = []
-    
-    i = 0
-    while i < len(token_loss): 
-        
-        valid_item = True
-        if char_token_mask is not None: 
-            if not char_token_mask[i]: 
-                valid_item = False
-        
-        if not valid_item: # group continuation breaks
-            natural_groups, natural_group_positions = add_to_groups(curr_group, curr_group_positions, natural_groups, natural_group_positions, cache_groups)
-                    
-            curr_group = []
-            curr_group_positions = []
-            i += 1
-            continue
-        
-        if not curr_group: 
-            curr_group.append(token_ids[i]) # first token in group can be hard to guess, point is the continuation of the group should be simple
-            curr_group_positions.append(i)
-        elif token_loss[i] <= token_loss[i-1] and token_loss[i] < threshold:  # Continue group if decreasing
-            curr_group.append(token_ids[i])
-            curr_group_positions.append(i)
-        else: 
-            natural_groups, natural_group_positions = add_to_groups(curr_group, curr_group_positions, natural_groups, natural_group_positions, cache_groups)
-            curr_group = []
-            curr_group_positions = []
-        i += 1
-            
-    natural_groups, natural_group_positions = add_to_groups(curr_group, curr_group_positions, natural_groups, natural_group_positions, cache_groups)
-        
-    return natural_groups, natural_group_positions
-
-
-def get_group_token_mask(token_loss, token_ids, cache_groups,
-                         quantile_threshold=0.7, 
-                         perplexity_threshold=None, 
-                         color='green', char_token_mask=None,
-                         cal_mask_device: str = "cpu"): 
-    
-    # group token position includes special tokens 
-    group_tokens, group_token_positions = detect_group_token(token_loss, token_ids, cache_groups, quantile_threshold=quantile_threshold,
-                                                             perplexity_threshold=perplexity_threshold,
-                                                             char_token_mask=char_token_mask,
-                                                             cal_mask_device=cal_mask_device)
-    group_token_mask = torch.zeros_like(token_loss, dtype=torch.bool)
-    groups = []
-    for group in group_token_positions:
-        g_start, g_end = group[0], group[-1]+1
-        group_token_mask[g_start: g_end] = True
-        curr_group = g_start, g_end, str(len(groups) + 1), color
-        groups.append(curr_group)
-    
-    return group_tokens, group_token_positions, group_token_mask, groups
-
+from rust_tokenizer import detect_group_token as detect_group_token_rust
 
 def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, quantile_threshold=0.7, 
                              perplexity_threshold=None, 
@@ -214,29 +137,17 @@ def detect_group_token_batch(token_ids, token_perplexity, cache_token_addition, 
     
     if token_perplexity.ndim == 1: 
         token_perplexity = token_perplexity.unsqueeze(0)
+
+    quantile_threshold = torch.quantile(token_perplexity, quantile_threshold, dim=1)
+    perplexity_threshold = torch.minimum(quantile_threshold, torch.tensor(perplexity_threshold if perplexity_threshold is not None else 999.))
     
-    cached_tuples = set(cache_token_addition.keys()) if cache_token_addition is not None else None
-        
-    tokens_to_group = []
-    group_token_positions = []
-    group_token_masks = []
-    groups = []
-    for token_ids_row, token_perp, char_token_mask_row in zip(token_ids, token_perplexity, char_token_mask):
-        # avoid duplicate token group detection (in cached groups will be skipped)
-        tokens_to_group_row, group_token_positions_row, group_token_masks_row, group_row = get_group_token_mask(token_loss=token_perp,
-                                                                                           token_ids=token_ids_row,
-                                                                                           cache_groups=cached_tuples,
-                                                                                           quantile_threshold=quantile_threshold,
-                                                                                           perplexity_threshold=perplexity_threshold,
-                                                                                           color=color, 
-                                                                                           char_token_mask=char_token_mask_row,
-                                                                                           cal_mask_device=cal_mask_device)
-        
-        group_token_positions.append(group_token_positions_row)
-        group_token_masks.append(group_token_masks_row)
-        groups.append(group_row)
-        tokens_to_group.append(tokens_to_group_row)
-        
-    group_token_masks = torch.stack(group_token_masks, axis=0)
+    token_perplexity = [t.tolist() for t in token_perplexity]
+    token_ids = [t.tolist() for t in token_ids]
+    char_token_mask = [t.tolist() for t in char_token_mask]
+    perplexity_threshold = perplexity_threshold.tolist()
+    
+    tokens_to_group, group_token_positions, group_token_masks, groups,  = detect_group_token_rust(token_perplexity, token_ids,
+                                                                                                 perplexity_threshold=perplexity_threshold,
+                                                                                                 char_token_mask=char_token_mask)
     
     return tokens_to_group, group_token_masks, groups, group_token_positions

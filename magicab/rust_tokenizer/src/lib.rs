@@ -184,11 +184,137 @@ fn _add_tokens(
     Ok((vocab, merges, eom_tokens, pair_token_groups, pair_token_positions))
 }
 
+
+fn add_to_groups(
+    curr_group: &[i64],
+    curr_group_positions: &[i64],
+    natural_groups: &mut Vec<Vec<i64>>,
+    natural_group_positions: &mut Vec<Vec<i64>>,
+) {
+    // Only add groups that have at least 2 tokens
+    if curr_group.len() >= 2 {
+        natural_groups.push(curr_group.to_vec());
+        natural_group_positions.push(curr_group_positions.to_vec());
+    }
+}
+
+
+#[pyfunction]
+pub fn detect_group_token(
+    token_loss: Vec<Vec<f64>>,
+    token_ids: Vec<Vec<i64>>,
+    perplexity_threshold: Vec<f64>,
+    char_token_mask: Option<Vec<Vec<bool>>>,
+) -> PyResult<(Vec<Vec<Vec<i64>>>, Vec<Vec<Vec<i64>>>, Vec<Vec<bool>>, Vec<Vec<(i64, i64, String, String)>>)> {
+    let mut natural_groups: Vec<Vec<Vec<i64>>> = Vec::new();
+    let mut natural_group_positions: Vec<Vec<Vec<i64>>> = Vec::new();
+    let mut formatted_groups: Vec<Vec<(i64, i64, String, String)>> = Vec::new();
+    let char_token_mask = char_token_mask.unwrap_or_else(|| vec![vec![true; token_ids[0].len()]; token_ids.len()]);
+    
+    // Initialize group_token_mask with all false
+    let mut group_token_mask = vec![vec![false; token_ids[0].len()]; token_ids.len()];
+    
+    for (seq_idx, ((seq_loss, seq_ids), seq_mask)) in token_loss.iter()
+        .zip(token_ids.iter())
+        .zip(char_token_mask.iter())
+        .enumerate() 
+    {
+        let mut seq_formatted_groups = Vec::new();
+        let mut current_group = Vec::new();
+        let mut current_token_group = Vec::new();
+        let mut prev_loss = seq_loss[0];
+        let mut group_counter = 1;
+        
+        // Initialize sequence-specific groups
+        let mut natural_groups_row: Vec<Vec<i64>> = Vec::new();
+        let mut natural_group_positions_row: Vec<Vec<i64>> = Vec::new();
+
+        // Get the threshold for this sequence
+        let row_perplexity_threshold = perplexity_threshold.get(seq_idx)
+            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "Perplexity threshold list length doesn't match input sequences"
+            ))?;
+        
+        // Add first position if it's a valid char token
+        if seq_mask[0] {
+            current_group.push(0i64);
+            current_token_group.push(seq_ids[0]);
+        }
+        
+        for (pos, ((&loss, &token_id), &is_char)) in seq_loss.iter()
+            .zip(seq_ids.iter())
+            .zip(seq_mask.iter())
+            .enumerate()
+            .skip(1) 
+        {
+            if !is_char {
+                if current_group.len() >= 2 {
+                    // Mark all positions in the current group as true in group_token_mask
+                    for &pos in &current_group {
+                        group_token_mask[seq_idx][pos as usize] = true;
+                    }
+                    natural_groups_row.push(current_token_group.clone());
+                    natural_group_positions_row.push(current_group.clone());
+                    let start = *current_group.first().unwrap() as i64;
+                    let end = *current_group.last().unwrap() as i64 + 1;
+                    seq_formatted_groups.push((start, end, group_counter.to_string(), "green".to_string()));
+                    group_counter += 1;
+                }
+                current_group.clear();
+                current_token_group.clear();
+            } else {
+                if loss < *row_perplexity_threshold && loss <= prev_loss {
+                    current_group.push(pos as i64);
+                    current_token_group.push(token_id);
+                } else {
+                    if current_group.len() >= 2 {
+                        // Mark all positions in the current group as true in group_token_mask
+                        for &pos in &current_group {
+                            group_token_mask[seq_idx][pos as usize] = true;
+                        }
+                        natural_groups_row.push(current_token_group.clone());
+                        natural_group_positions_row.push(current_group.clone());
+                        let start = *current_group.first().unwrap() as i64;
+                        let end = *current_group.last().unwrap() as i64 + 1;
+                        seq_formatted_groups.push((start, end, group_counter.to_string(), "green".to_string()));
+                        group_counter += 1;
+                    }
+                    current_group.clear();
+                    current_token_group.clear();
+                    current_group.push(pos as i64);
+                    current_token_group.push(token_id);
+                }
+            }
+            prev_loss = loss;
+        }
+        
+        // Check final group
+        if current_group.len() >= 2 {
+            for &pos in &current_group {
+                group_token_mask[seq_idx][pos as usize] = true;
+            }
+            natural_groups_row.push(current_token_group);
+            natural_group_positions_row.push(current_group.clone());
+            let start = *current_group.first().unwrap() as i64;
+            let end = *current_group.last().unwrap() as i64 + 1;
+            seq_formatted_groups.push((start, end, group_counter.to_string(), "green".to_string()));
+        }
+        
+        // Add sequence groups to overall results
+        natural_groups.push(natural_groups_row);
+        natural_group_positions.push(natural_group_positions_row);
+        formatted_groups.push(seq_formatted_groups);
+    }
+
+    Ok((natural_groups, natural_group_positions, group_token_mask, formatted_groups))
+}
+
+
 /// A Python module implemented in Rust.
 #[pymodule]
 fn rust_tokenizer(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyETokenizer>()?;
     m.add_function(wrap_pyfunction!(filter_tokens, m)?)?;
-    m.add_function(wrap_pyfunction!(_add_tokens, m)?)?;
+    m.add_function(wrap_pyfunction!(detect_group_token, m)?)?;
     Ok(())
 } 

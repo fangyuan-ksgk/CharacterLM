@@ -3,7 +3,6 @@ import os
 import torch 
 import numpy as np
 from typing import Optional
-from .grouping import detect_spike_token, detect_group_token, get_spike_token_mask, get_group_token_mask, get_remove_token_mask
 from .utils import calculate_bits_per_char, shift_token_loss, short_one, inference
 from .vis import visualize_text_multiline
 from .grouping import detect_spike_token_batch, detect_remove_token_batch, detect_group_token_batch
@@ -92,7 +91,9 @@ class Magicab:
         group_color = 'lightgreen'
         tokens_to_group, group_token_mask, token_groups, group_token_positions = detect_group_token_batch(token_ids, token_perplexity, 
                                                                                                           self.token_addition, 
-                                                                                                          quantile_threshold=self.group_quantile_threshold, perplexity_threshold=self.group_perplexity_threshold, color=group_color, char_token_mask=char_token_mask)
+                                                                                                          quantile_threshold=self.group_quantile_threshold,
+                                                                                                          perplexity_threshold=self.group_perplexity_threshold,
+                                                                                                          char_token_mask=char_token_mask)
         char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, group_token_mask, token_groups, char_token_mask, decode, mask_color=group_color)
 
         file_name = "group"
