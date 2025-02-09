@@ -55,9 +55,13 @@ if load_meta:
         meta = pickle.load(f)
     
     # Initialize Magicab Object
-    tokenizer = ETokenizer(char_vocab=meta['itos'])
-    magicab = Magicab(tokenizer)
-    
+    if 'tokenizer_path' in meta: 
+        tokenizer = ETokenizer.load(meta['tokenizer_path'])
+    else: 
+        tokenizer = ETokenizer(char_vocab=meta['itos'])
+        
+    magicab = Magicab(tokenizer=tokenizer, model=model, checkpoint_dir=out_dir)
+
 # Update Magicab Vocabulary & Training Data 
 from magicab import update_magicab
 from data.enwiki.util import prepare_enwiki_data
@@ -79,3 +83,7 @@ update_magicab(magicab,
 
 # Update Training Data 
 prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer) # relabel training data with updated vocabulary
+
+# Save model checkpoint & tokenizer 
+from magicab import save_magicab
+save_magicab(checkpoint, magicab, out_dir)
