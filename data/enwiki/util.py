@@ -117,12 +117,9 @@ def prepare_enwiki_data(clean=False, tokenizer=None):
     test_ids.tofile(os.path.join(data_dir, 'test.bin'))
 
     # save meta information
-    # tokenizer info saved together with data ... we want to change this perhaps? 
-    # in initialization stage, we should load this, but 'resume' should load tokenizer from other place
     meta = {
-        'vocab_size': vocab_size,
-        'itos': tokenizer.char_vocab,
-        'stoi': {v:k for k, v in tokenizer.char_vocab.items()},
+        "vocab_size": vocab_size, 
+        "tokenizer_path": os.path.join(tokenizer.checkpoint_dir, 'tokenizer.json'),
     }
         
     with open(os.path.join(data_dir, 'meta.pkl'), 'wb') as f:
