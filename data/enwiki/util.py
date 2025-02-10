@@ -46,6 +46,7 @@ def clean_wiki_text(content):
     return txt
 
 
+
 def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/play"):
     """
     Prepare the enwiki dataset for language modeling.
@@ -81,8 +82,6 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
         itos = { i:ch for i,ch in enumerate(chars) }
         tokenizer = ETokenizer(char_vocab=itos)
            
-    encode = tokenizer.encode
-    decode = tokenizer.decode
     vocab_size = tokenizer.vocab_size
 
     # create the train, validation and test splits
@@ -98,9 +97,9 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
 
     # encode all splits
     print(f"Encoding data with tokenizer ...")
-    train_ids = encode(train_data)
-    val_ids = encode(val_data)
-    test_ids = encode(test_data)
+    train_ids = tokenizer.encode_with_chunking(train_data)
+    val_ids = tokenizer.encode_with_chunking(val_data)
+    test_ids = tokenizer.encode_with_chunking(test_data)
     
     print(f"Total tokens: {n}")
     print(f"Vocab size: {vocab_size}")

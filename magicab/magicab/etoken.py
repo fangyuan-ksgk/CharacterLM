@@ -166,8 +166,7 @@ class ETokenizer:
         self.char_vocab = char_vocab
         self.char2idx = {c:i for i, c in char_vocab.items()}
         self.special_ids = list(self.special2idx.values())        
-
-            
+    
     def _init_token_trie(self, char_vocab, special_tokens=None):
         # Initialize TokenTrie with basic vocabulary
         self.token_trie = TokenTrie()
@@ -320,14 +319,14 @@ class ETokenizer:
         start_time = time.time()
         ids = self.encode_char(text)
         char_time = time.time() - start_time
-        print(" - Char encode time: ", char_time)
+        # print(" - Char encode time: ", char_time)
 
         start_time = time.time()
         encoded = self._encode(ids, mode)
         encode_time = time.time() - start_time
-        print(" - Merge encode time: ", encode_time)
+        # print(" - Merge encode time: ", encode_time)
         
-        print("Total encode time: ", char_time + encode_time)
+        # print("Total encode time: ", char_time + encode_time)
         return encoded
     
     def _process_token_pair(self, prefix_token_idx, curr_token_idx, *args):
@@ -488,3 +487,51 @@ class ETokenizer:
         c = ETokenizer(deepcopy(self.char_vocab))
         c.token_trie = deepcopy(self.token_trie)
         return c
+    
+    def encode_with_chunking(self, text, chunk_size=256*8): 
+        chunks = chunk_text(text, chunk_size)
+        return _encode_chunks(chunks, self, chunk_size)
+    
+    
+def _encode_chunks(chunks, tok, chunk_size=256*8): 
+    max_merge_len = max([len(v) for v in tok.vocab.values()])
+    ids = []
+    prev_chunk_ids = []
+    for chunk in tqdm(chunks): 
+        chunk_ids = tok.encode(chunk)
+        
+        if prev_chunk_ids: 
+            connect_start, connect_end = chunk_size-1, max_merge_len-1
+            connect_ids = tok._encode(prev_chunk_ids[connect_start:] + chunk_ids[:connect_end])
+            ids.extend(connect_ids + chunk_ids[connect_end:-1])
+        else:
+            ids.extend(chunk_ids[:-1])    
+        prev_chunk_ids = chunk_ids    
+        
+    if max_merge_len < len(chunk_ids):
+        ids.extend(chunk_ids[-1:])
+        
+    return ids
+
+def chunk_text(text, chunk_size=256*8):
+    words = text.split()
+    chunks = []
+    current_chunk = []
+    current_length = 0
+    
+    for word in words:
+        word_length = len(word) + 1  # +1 for the space
+        
+        if current_length + word_length > chunk_size:
+            chunks.append(' '.join(current_chunk))
+            current_chunk = [word]
+            current_length = word_length
+        else:
+            current_chunk.append(word)
+            current_length += word_length
+    
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+    
+    return chunks
+

@@ -304,6 +304,8 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
+                
+                
     if iter_num == 0 and eval_only:
         break
 
@@ -357,3 +359,6 @@ while True:
 if ddp:
     destroy_process_group()
 pbar.close()  # close the progress bar
+
+# Save tokenizer
+magicab.tokenizer.save(os.path.join(out_dir, 'tokenizer.json'))
