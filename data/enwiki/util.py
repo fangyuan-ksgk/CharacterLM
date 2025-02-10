@@ -120,7 +120,10 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
     meta = {
         "vocab_size": vocab_size, 
         "tokenizer_path": os.path.join(checkpoint_dir, 'tokenizer.json'),
+        "itos": itos
     }
+    
+    tokenizer.save(os.path.join(checkpoint_dir, 'tokenizer.json'))
         
     with open(os.path.join(data_dir, 'meta.pkl'), 'wb') as f:
         pickle.dump(meta, f)

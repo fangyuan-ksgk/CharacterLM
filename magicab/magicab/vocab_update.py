@@ -118,7 +118,7 @@ def _prep_vocabulary_removal(tokens_to_remove):
     token_removal = defaultdict(int)  # key: tuple of group token ids : counts of group tokens 
     for row_idx in range(len(tokens_to_remove)):
         for token_id in tokens_to_remove[row_idx]:
-            token_removal[token_id.item()] += 1
+            token_removal[token_id] += 1
     return token_removal
 
 
@@ -263,12 +263,18 @@ def add_to_vocab(self, max_size_change: int = 500):
     print(f":: Total {len(eom_tokens)} new tokens added")
     
     # wte addition 
-    embed_vecs = torch.stack([self.embed_cache[id] for id in eom_tokens])
-    new_wte = add_token_wte(self.model.transformer.wte, embed_vecs)
+    if len(eom_tokens) > 0: 
+        embed_vecs = torch.stack([self.embed_cache[id] for id in eom_tokens])
+        new_wte = add_token_wte(self.model.transformer.wte, embed_vecs)
+    else: 
+        new_wte = self.model.transformer.wte
 
     # project addition 
-    project_vecs = torch.stack([self.project_cache[id] for id in eom_tokens])
-    new_lm_head = add_token_lm_head(self.model.lm_head, project_vecs)
+    if len(eom_tokens) > 0: 
+        project_vecs = torch.stack([self.project_cache[id] for id in eom_tokens])
+        new_lm_head = add_token_lm_head(self.model.lm_head, project_vecs)
+    else: 
+        new_lm_head = self.model.lm_head
     
     update_model(self, new_wte, new_lm_head)
     

@@ -94,7 +94,10 @@ def detect_remove_token_batch(token_ids, token_perplexity, tokenizer, quantile_t
         for remove_token_positions_row in remove_token_positions: 
             remove_token_groups_row = []
             for position in remove_token_positions_row: 
-                curr_group = position.item(), position.item() + 1, str(len(remove_token_groups_row) + 1), color
+                try: 
+                    curr_group = position.item(), position.item() + 1, str(len(remove_token_groups_row) + 1), color
+                except: 
+                    curr_group = position, position + 1, str(len(remove_token_groups_row) + 1), color
                 remove_token_groups_row.append(curr_group)
             remove_token_groups.append(remove_token_groups_row)
         print(f"   :: Remove token group appending loop: {time.time() - t2:.4f} seconds")
