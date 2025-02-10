@@ -232,10 +232,6 @@ class Magicab:
         
         return tokenizer_size_match and all_sizes_match
     
-    def save(self): 
-        """ 
-        Save model checkpoint & tokenizer
-        """
     
 from tqdm import tqdm 
 

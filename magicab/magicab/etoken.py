@@ -121,8 +121,38 @@ class TokenTrie:
     def get_merge_result(self, id1: int, id2: int) -> int:
         return self.merges.get((id1, id2))
     
-    
-  
+    def save(self, path):
+        """Save TokenTrie state to a JSON file."""
+        data = {
+            'id2token': {str(k): v for k, v in self.id2token.items()},
+            'merges': {f"{k[0]},{k[1]}": v for k, v in self.merges.items()},
+            'next_id': self.next_id
+        }
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    @classmethod
+    def load(cls, path):
+        """Load TokenTrie from a JSON file."""
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        trie = cls()
+        
+        # Restore tokens
+        for k, v in data['id2token'].items():
+            trie.add_token(v, int(k))
+        
+        # Restore merges
+        for k, v in data['merges'].items():
+            id1, id2 = map(int, k.split(','))
+            trie.merges[(id1, id2)] = v
+            
+        # Restore next_id
+        trie.next_id = data['next_id']
+        
+        return trie
+
 class ETokenizer: 
     """ 
     ETokenizer is a tokenizer that could be updated on-the-fly 
@@ -221,44 +251,55 @@ class ETokenizer:
             
         return ids
     
-    def _encode_python(self, ids): 
+    
+    def _encode_python(self, ids):
         """
-        Exhaustive Encoding | Python ver. using TokenTrie for optimization
-        """
-        def find_longest_match(pos):
-            if pos >= len(ids) - 1:
-                return None
-            
-            current_token = self.token_trie.id2token[ids[pos]]
-            next_token = self.token_trie.id2token[ids[pos + 1]]
-            combined = current_token + next_token
-            
-            # Check if this combination exists in the trie
-            token_id = self.token_trie.find_token(combined)
-            if token_id is not None:
-                return (ids[pos], ids[pos + 1]), token_id
-            return None
+        Optimized Exhaustive Encoding using TokenTrie for prefix matching.
         
-        while len(ids) >= 2:
-            best_merge = None
-            best_pos = None
-            
-            # Look for the earliest position where we can merge
-            for pos in range(len(ids) - 1):
-                match = find_longest_match(pos)
-                if match is not None:
-                    best_merge = match
-                    best_pos = pos
+        Instead of computing all valid pair statistics and filtering,
+        we use the TokenTrie to scan for the longest merge candidate starting
+        at each token position. This leverages the structure of the Trie to
+        quickly check concatenated token strings in sequence.
+        """
+        def find_longest_merge(start):
+            # We need at least two tokens to form a merge candidate.
+            if start >= len(ids) - 1:
+                return None
+            # Initialize the candidate using the first two tokens
+            current_str = self.token_trie.id2token[ids[start]] + self.token_trie.id2token[ids[start + 1]]
+            merged_token_id = self.token_trie.find_token(current_str)
+            if merged_token_id is None:
+                return None
+
+            # Record the current candidate: (span length, resulting token id)
+            best_candidate = (2, merged_token_id)
+            # Try to extend the match by adding subsequent tokens in the sequence.
+            for i in range(start + 2, len(ids)):
+                current_str += self.token_trie.id2token[ids[i]]
+                token_id = self.token_trie.find_token(current_str)
+                if token_id is None:
                     break
-            
-            if best_merge is None:
-                break
-                
-            # Perform the merge
-            pair, merged_id = best_merge
-            ids = ids[:best_pos] + [merged_id] + ids[best_pos + 2:]
-            
+                # Found a longer valid merge candidate.
+                best_candidate = (i - start + 1, token_id)
+            return best_candidate
+
+        pos = 0
+        # Continue scanning until no more merges can be done.
+        while pos < len(ids):
+            candidate = find_longest_merge(pos)
+            if candidate is not None:
+                span_length, merged_token_id = candidate
+                # Do the merge by replacing the token span with the merged token id.
+                ids = ids[:pos] + [merged_token_id] + ids[pos + span_length:]
+                # After a merge, it's safe to step back one index (if pos > 0)
+                # so that we can catch any new merge opportunities that might span
+                # tokens across the previous merge.
+                pos = max(0, pos - 1)
+            else:
+                pos += 1
         return ids
+    
+    
     
     def _encode(self, ids, mode="trie"): 
         """ 
@@ -272,7 +313,7 @@ class ETokenizer:
         else: 
             return self.rust_tokenizer.encode(ids)
     
-    def encode(self, text, mode="rust"):
+    def encode(self, text, mode="trie"):
         """ 
         Exhaustive Encoding | Byte level vocabulary base --- we need character-level vocabulary
         """
@@ -399,31 +440,43 @@ class ETokenizer:
         return encode_char(text, self.special_tokens, self.special2idx, self.char2idx)
     
     def save(self, path):
-        # Convert data to JSON-serializable format
+        """Save ETokenizer state to a JSON file."""
         data = {
             'char_vocab': {str(k): v for k, v in self.char_vocab.items()},
-            'id2token': {str(k): v for k, v in self.token_trie.id2token.items()},
-            'merges': {f"{k[0]},{k[1]}": v for k, v in self.token_trie.merges.items()}
+            'special_tokens': self.special_tokens,
+            'use_char': self.use_char
         }
+        
+        # Save main data
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-    
+        
+        # Save TokenTrie to a separate file
+        trie_path = path.replace('.json', '_trie.json')
+        self.token_trie.save(trie_path)
+
     @classmethod
     def load(cls, path):
+        """Load ETokenizer from a JSON file."""
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
+        # Convert char_vocab keys back to integers
         char_vocab = {int(k): v for k, v in data['char_vocab'].items()}
+        
+        # Create instance (this already sets up use_char, char_vocab, char2idx)
         inst = cls(char_vocab)
+        inst.special_tokens = data['special_tokens']
         
-        # Restore tokens and merges
-        for k, v in data['id2token'].items():
-            inst.token_trie.add_token(v, int(k))
+        # Load TokenTrie from separate file
+        trie_path = path.replace('.json', '_trie.json')
+        inst.token_trie = TokenTrie.load(trie_path)
         
-        for k, v in data['merges'].items():
-            id1, id2 = map(int, k.split(','))
-            inst.token_trie.merges[(id1, id2)] = v
-            
+        # Only need to rebuild special token mappings
+        inst.special2idx = {token: inst.token_trie.token2id[token] 
+                           for token in inst.special_tokens}
+        inst.special_ids = list(inst.special2idx.values())
+        
         return inst
     
     def sanity_check(self, text = "Hello, world!"):

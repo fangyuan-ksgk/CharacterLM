@@ -187,7 +187,7 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
         char_token_loss = [token_loss_row[special_token_mask_row[1:]] for token_loss_row, special_token_mask_row in zip(token_loss, special_token_mask)]
         char_token_perplexity = [shift_token_loss(char_token_loss_row, return_tensor=True) for char_token_loss_row in char_token_loss]
         
-        char_perplexity = get_char_perplexity_batch(char_token_ids.to("cpu"), char_token_perplexity.to("cpu"), decode)
+        char_perplexity = get_char_perplexity_batch(char_token_ids, char_token_perplexity, decode)
         
         res["char_perplexity"] = char_perplexity
         res["bpc_loss"] = bpc_loss
