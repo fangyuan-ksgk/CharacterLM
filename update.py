@@ -4,7 +4,7 @@ from contextlib import nullcontext
 import torch
 import tiktoken
 from model import GPTConfig, GPT
-from magicab import ETokenizer, Magicab, update_magicab
+from magicab import ETokenizer, Magicab, update_magicab, save_magicab
 from data.enwiki.util import prepare_enwiki_data
 
 # -----------------------------------------------------------------------------
@@ -25,50 +25,31 @@ device_type = 'cuda' if 'cuda' in device else 'mps' if 'mps' in device else 'cpu
 ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
 ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
 
-# model
-if init_from == 'resume':
-    # init from a model saved in a specific directory
-    ckpt_path = os.path.join(out_dir, 'ckpt.pt')
-    checkpoint = torch.load(ckpt_path, map_location=device)
-    gptconf = GPTConfig(**checkpoint['model_args'])
-    model = GPT(gptconf)
-    state_dict = checkpoint['model']
-    unwanted_prefix = '_orig_mod.'
-    for k,v in list(state_dict.items()):
-        if k.startswith(unwanted_prefix):
-            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
-    model.load_state_dict(state_dict)
-elif init_from.startswith('gpt2'):
-    # init from a given GPT-2 model
-    model = GPT.from_pretrained(init_from, dict(dropout=0.0))
+
+# load model checkpoint from 'out_dir'
+ckpt_path = os.path.join(out_dir, 'ckpt.pt')
+checkpoint = torch.load(ckpt_path, map_location=device)
+gptconf = GPTConfig(**checkpoint['model_args'])
+model = GPT(gptconf)
+state_dict = checkpoint['model']
+unwanted_prefix = '_orig_mod.'
+for k,v in list(state_dict.items()):
+    if k.startswith(unwanted_prefix):
+        state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+model.load_state_dict(state_dict)
 
 model.eval()
 model.to(device)
 if compile:
     model = torch.compile(model) # requires PyTorch 2.0 (optional)
 
-# look for the meta pickle in case it is available in the dataset folder
-load_meta = False
-if init_from == 'resume' and 'config' in checkpoint and 'dataset' in checkpoint['config']: # older checkpoints might not have these...
-    meta_path = os.path.join('data', checkpoint['config']['dataset'], 'meta.pkl')
-    load_meta = os.path.exists(meta_path)
-if load_meta:
-    print(f"Loading meta from {meta_path}...")
-    with open(meta_path, 'rb') as f:
-        meta = pickle.load(f)
-    
-    # Initialize Magicab Object
-    if 'tokenizer_path' in meta: 
-        tokenizer = ETokenizer.load(meta['tokenizer_path'])
-    else: 
-        tokenizer = ETokenizer(char_vocab=meta['itos'])
-        
-    magicab = Magicab(tokenizer=tokenizer, model=model, checkpoint_dir=out_dir)
+# Load tokenizer from checkpoint 
+tokenizer = ETokenizer.load(checkpoint['tokenizer_path'])
+
+# Initialize Magicab object 
+magicab = Magicab(tokenizer=tokenizer, model=model, checkpoint_dir=out_dir)
 
 # Update Magicab Vocabulary & Training Data 
-from magicab import update_magicab, save_magicab
-from data.enwiki.util import prepare_enwiki_data
-
 data_dir = os.path.join('data', 'enwiki')
 
 # Update Magicab Vocabulary 
@@ -83,7 +64,6 @@ print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size) # Iss
 
 # Save model checkpoint & tokenizer 
 save_magicab(checkpoint, magicab, new_dir)
-
 
 # Update Training Data 
 prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir) # relabel training data with updated vocabulary
