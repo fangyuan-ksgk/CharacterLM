@@ -122,6 +122,8 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
         "itos": itos
     }
     
+    os.makedirs("checkpoint", exist_ok=True)
+    os.makedirs(checkpoint_dir, exist_ok=True)
     tokenizer.save(os.path.join(checkpoint_dir, 'tokenizer.json'))
         
     with open(os.path.join(data_dir, 'meta.pkl'), 'wb') as f:
