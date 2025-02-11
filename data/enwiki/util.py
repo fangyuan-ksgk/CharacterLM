@@ -83,6 +83,7 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
         tokenizer = ETokenizer(char_vocab=itos)
            
     vocab_size = tokenizer.vocab_size
+    itos = tokenizer.char_vocab
 
     # create the train, validation and test splits
     n = len(data)
@@ -115,11 +116,12 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
     val_ids.tofile(os.path.join(data_dir, 'val.bin'))
     test_ids.tofile(os.path.join(data_dir, 'test.bin'))
 
+    
     # save meta information
     meta = {
         "vocab_size": vocab_size, 
         "tokenizer_path": os.path.join(checkpoint_dir, 'tokenizer.json'),
-        "itos": itos
+        "itos": itos 
     }
     
     os.makedirs("checkpoint", exist_ok=True)
