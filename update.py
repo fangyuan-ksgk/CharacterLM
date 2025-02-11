@@ -8,9 +8,8 @@ from magicab import ETokenizer, Magicab, update_magicab, save_magicab
 from data.enwiki.util import prepare_enwiki_data
 
 # -----------------------------------------------------------------------------
-init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
-out_dir = 'out' # ignored if init_from is not 'resume'
-new_dir = "new_out"
+out_dir = 'checkpoint/base' # ignored if init_from is not 'resume'
+new_dir = "checkpoint/new"
 device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
 compile = False # use PyTorch 2.0 to compile the model to be faster

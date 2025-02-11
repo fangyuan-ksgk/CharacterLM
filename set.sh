@@ -19,7 +19,7 @@ wandb login
 accelerate config
 # Iteration Scripts
 # python train.py config/train_enwiki_char.py --out_dir="iter1"
-# python update.py --init_from="resume" --out_dir="iter1" --new_dir="iter2"
+# python update.py --out_dir="iter1" --new_dir="iter2"
 # python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="iter2"
 # python update.py --out_dir="iter2" --new_dir="iter3"
 # accelerate launch train.py --config config/enwiki_char.json
