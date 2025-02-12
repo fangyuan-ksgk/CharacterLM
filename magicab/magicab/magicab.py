@@ -297,7 +297,7 @@ def save_magicab(checkpoint, magicab,
     new_model_args = orig_model_args.copy()
     new_model_args['vocab_size'] = magicab.tokenizer.vocab_size
     
-    new_val_loss = torch.tensor(0.0).to(device)
+    new_val_loss = torch.tensor(999.0).to(device)
     new_iter_num = 0
     new_config = checkpoint['config']
     
