@@ -52,6 +52,7 @@ class Magicab:
     def update_vocab(self, max_size_change: int = 500):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
         add_to_vocab(self, max_size_change)
+        print(" - add_to_vocab done")
         remove_from_vocab(self, max_size_change) # is it possible to remove in wrong order? (removing (100) before removing (102 = (100, 101)) ?)
         self.reset_update_info()
 

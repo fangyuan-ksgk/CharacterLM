@@ -281,6 +281,7 @@ def add_to_vocab(self, max_size_change: int = 500):
     
 @timing_decorator
 def remove_from_vocab(self, max_size_change: int = 500): 
+    print(":: Removing from vocabulary ...")
     tokens_to_remove = sorted(self.token_removal.keys(), key=lambda x: self.token_removal[x], reverse=True)[:max_size_change]
     print(f":: Total {len(tokens_to_remove)} tokens to remove")
     self.tokenizer.remove_tokens(tokens_to_remove)
