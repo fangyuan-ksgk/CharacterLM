@@ -54,7 +54,7 @@ class Magicab:
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
         add_to_vocab(self, max_size_change)
         print(" - add_to_vocab done")
-        remove_from_vocab(self, max_size_change) # is it possible to remove in wrong order? (removing (100) before removing (102 = (100, 101)) ?)
+        # remove_from_vocab(self, max_size_change) # is it possible to remove in wrong order? (removing (100) before removing (102 = (100, 101)) ?)
         self.reset_update_info()
 
     def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo", return_device: str = "cpu"): 
@@ -260,7 +260,7 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_s
                                  avoid_duplicate=False,
                                  cal_mask_device=device_type)
         
-        cached_removal_size = len(magicab.token_removal)
+        cached_removal_size = len(magicab.token_removal) # this takes forever to compute ...
         cached_addition_size = len(magicab.token_addition)
         print(f":: Cached removal size: {cached_removal_size}, Cached addition size: {cached_addition_size}")
         if cached_removal_size >= max_size_change or cached_addition_size >= max_size_change: 

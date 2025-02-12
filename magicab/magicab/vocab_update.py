@@ -137,13 +137,13 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, 
     )
     # print(f" - Inference took: {time.time() - t0:.4f} seconds")
 
-    t1 = time.time()
-    # Process removals and groupings in parallel if possible
-    tokens_to_remove, remove_positions, remove_mask, remove_groups = self._detect_remove_tokens(
-        token_ids, token_perplexity, char_token_mask, cal_mask_device=cal_mask_device
-    )
+    # t1 = time.time()
+    # # Process removals and groupings in parallel if possible
+    # tokens_to_remove, remove_positions, remove_mask, remove_groups = self._detect_remove_tokens(
+    #     token_ids, token_perplexity, char_token_mask, cal_mask_device=cal_mask_device
+    # )
     
-    print(f" - Remove token detection took: {time.time() - t1:.4f} seconds")
+    # print(f" - Remove token detection took: {time.time() - t1:.4f} seconds")
     
     t2 = time.time()
     
@@ -165,9 +165,9 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, 
     print(f" - Vocabulary addition prep took: {time.time() - t3:.4f} seconds")
     
     
-    t4 = time.time()
-    token_removal = _prep_vocabulary_removal(tokens_to_remove)
-    print(f" - Token removal prep took: {time.time() - t4:.4f} seconds")
+    # t4 = time.time()
+    # token_removal = _prep_vocabulary_removal(tokens_to_remove)
+    # print(f" - Token removal prep took: {time.time() - t4:.4f} seconds")
     
     t5 = time.time()
     # Update caches efficiently using dict operations : switch to batch operations
@@ -175,7 +175,7 @@ def _cache_vocabulary_change(self, texts=None, input_ids=None, target_ids=None, 
     self.embed_cache = run_avg_dict_merge(self.embed_cache, embed_cache)
     self.project_cache = run_avg_dict_merge(self.project_cache, project_cache)
     self.token_addition = add_dict_merge(self.token_addition, token_addition)
-    self._token_removal = add_dict_merge(self._token_removal, token_removal)
+    # self._token_removal = add_dict_merge(self._token_removal, token_removal)
     
     print(f" - Cache updates took: {time.time() - t5:.4f} seconds")
 
