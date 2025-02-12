@@ -259,6 +259,13 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_s
         magicab.cache_vocab_change(input_ids=x, target_ids=y,
                                  avoid_duplicate=False,
                                  cal_mask_device=device_type)
+        
+        cached_removal_size = len(magicab.token_removal)
+        cached_addition_size = len(magicab.token_addition)
+        print(f":: Cached removal size: {cached_removal_size}, Cached addition size: {cached_addition_size}")
+        if cached_removal_size >= max_size_change or cached_addition_size >= max_size_change: 
+            print(f":: Reached max size change: {max_size_change}, stopping")
+            break
 
     # Update vocabulary after processing all batches
     magicab.update_vocab(max_size_change=max_size_change)
