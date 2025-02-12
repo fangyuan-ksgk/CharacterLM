@@ -14,7 +14,9 @@ device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
 compile = False # use PyTorch 2.0 to compile the model to be faster
 block_size=256 # context length of model 
-batch_size=256 # batch size of training data 
+batch_size=256 # batch size of training data
+max_size_change = 2000 # max number of tokens to add
+thres = 0.6 # below this threshold, tokens will be grouped together
 exec(open('configurator.py').read()) # overrides from command line or config file
 # -----------------------------------------------------------------------------
 
@@ -46,7 +48,8 @@ if compile:
 tokenizer = ETokenizer.load(checkpoint['tokenizer_path'])
 
 # Initialize Magicab object 
-magicab = Magicab(tokenizer=tokenizer, model=model, checkpoint_dir=out_dir)
+magicab = Magicab(tokenizer=tokenizer, model=model, checkpoint_dir=out_dir,
+                  group_perplexity_threshold=thres)
 
 # Update Magicab Vocabulary & Training Data 
 data_dir = os.path.join('data', 'enwiki')
@@ -57,7 +60,7 @@ update_magicab(magicab,
                block_size=block_size, 
                batch_size=batch_size, 
                device_type=device,
-               max_size_change=2000)
+               max_size_change=max_size_change)
 
 print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size) # Issue : not actually updated ... 
 

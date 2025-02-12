@@ -1,21 +1,25 @@
 python data/enwiki/prepare_data.py --clean
+run_dir="checkpoint/run1"
+mkdir -p $run_dir
 
-python train.py config/train_enwiki_char.py --out_dir="checkpoint/base"
-python update.py --out_dir="checkpoint/base" --new_dir="checkpoint/iter1_raw"
+python train.py config/train_enwiki_char.py --out_dir="$run_dir"
+python update.py --out_dir="$run_dir" --new_dir="$run_dir/iter1_raw" --thres=0.3 --max_size_change=3000
+mkdir -p $run_dir/iter1
+cp -r $run_dir/iter1_raw/* $run_dir/iter1
 
-mkdir -p checkpoint/iter1
-cp -r checkpoint/iter1_raw/* checkpoint/iter1
+python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="$run_dir/iter1"
+python update.py --out_dir="$run_dir/iter1" --new_dir="$run_dir/iter2_raw" --thres=0.3 --max_size_change=3000
+mkdir -p $run_dir/iter2
+cp -r $run_dir/iter2_raw/* $run_dir/iter2
 
-python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="checkpoint/iter1"
-python update.py --out_dir="checkpoint/iter1" --new_dir="checkpoint/iter2_raw"
+python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="$run_dir/iter2"
+python update.py --out_dir="$run_dir/iter2" --new_dir="$run_dir/iter3_raw" --thres=0.3 --max_size_change=3000
+mkdir -p $run_dir/iter3
+cp -r $run_dir/iter3_raw/* $run_dir/iter3
 
-mkdir -p checkpoint/iter2
-cp -r checkpoint/iter2_raw/* checkpoint/iter2
+python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="$run_dir/iter3"
+python update.py --out_dir="$run_dir/iter3" --new_dir="$run_dir/iter4_raw" --thres=0.3 --max_size_change=3000
+mkdir -p $run_dir/iter4
+cp -r $run_dir/iter4_raw/* $run_dir/iter4
 
-python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="checkpoint/iter2"
-python update.py --out_dir="checkpoint/iter2" --new_dir="checkpoint/iter3_raw"
-
-mkdir -p checkpoint/iter3
-cp -r checkpoint/iter3_raw/* checkpoint/iter3
-
-python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="checkpoint/iter3"
+python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="$run_dir/iter4"
