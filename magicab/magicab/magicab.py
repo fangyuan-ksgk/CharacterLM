@@ -8,6 +8,7 @@ from .vis import visualize_text_multiline
 from .grouping import detect_spike_token_batch, detect_remove_token_batch, detect_group_token_batch
 from .utils import prep_char_perplexity_batch, get_char_perplexity_batch
 from .vocab_update import _cache_vocabulary_change, add_to_vocab, remove_from_vocab
+import gc
 
 class Magicab:
     """Manages joint updates to both model vocabulary and tokenizer vocabulary"""
@@ -236,38 +237,31 @@ class Magicab:
     
 from tqdm import tqdm 
 
-def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_size_change: int = 500): 
-    """ 
-    Updates the Magicab vocabulary based on the training data
+def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_size_change: int = 2000, num_batches: int = 20): 
     """
-    data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
-
-    total_batches = len(data) // (block_size * batch_size) + 1
-
-    # Loop through dataset in batches
-    for i in tqdm(range(total_batches), desc="Updating Magicab Vocabulary"): 
-        
-        ix = i * (block_size * batch_size) + np.arange(batch_size) * block_size
+    Updates the Magicab vocabulary based on random batches of training data
     
-        if (i + 1) * (block_size * batch_size) > len(data):
-            ix = torch.tensor([
-                min(idx, len(data) - block_size - 2) for idx in ix
-            ])
+    Args:
+        magicab: Magicab instance
+        data_dir: Directory containing training data
+        block_size: Size of each sequence block
+        batch_size: Number of sequences per batch
+        device_type: Device to use for computation
+        max_size_change: Maximum number of vocabulary changes
+        num_batches: Number of random batches to process
+    """
+    # Process random batches
+    for _ in tqdm(range(num_batches), desc="Caching vocabulary changes"):
+        # Use existing get_batch function
+        x, y = get_batch('train', data_dir, block_size, batch_size, device_type, device_type)
             
-        x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
-        y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
-        if device_type == 'cuda':
-            # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
-            x, y = x.pin_memory().to(device_type, non_blocking=True), y.pin_memory().to(device_type, non_blocking=True)
-        else:
-            x, y = x.to(device_type), y.to(device_type)
-            
-        # cache vocabulary change 
+        # Cache vocabulary change for this batch
         magicab.cache_vocab_change(input_ids=x, target_ids=y,
-                                   avoid_duplicate=False,
-                                   cal_mask_device=device_type)
+                                 avoid_duplicate=False,
+                                 cal_mask_device=device_type)
 
-    magicab.update_vocab(max_size_change=max_size_change) # update tokenizer & model
+    # Update vocabulary after processing all batches
+    magicab.update_vocab(max_size_change=max_size_change)
     
     return magicab
 
