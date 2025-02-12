@@ -61,8 +61,8 @@ update_magicab(magicab,
 
 print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size) # Issue : not actually updated ... 
 
-# Save model checkpoint & tokenizer | checkpoint is updated inside save_magicab
-save_magicab(checkpoint, magicab, new_dir)
-
 # Update Training Data 
 prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir) # relabel training data with updated vocabulary
+
+# Save model checkpoint & tokenizer | checkpoint is updated inside save_magicab
+save_magicab(checkpoint, magicab, new_dir)
