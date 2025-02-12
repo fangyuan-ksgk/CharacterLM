@@ -28,8 +28,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
-from magicab import ETokenizer, Magicab, update_magicab
-from data.enwiki.util import prepare_enwiki_data
 
 
 # -----------------------------------------------------------------------------
@@ -79,8 +77,6 @@ compile = True # use PyTorch 2.0 to compile the model to be faster
 config_keys = [k for k,v in globals().items() if not k.startswith('_') and isinstance(v, (int, float, bool, str))]
 exec(open('configurator.py').read()) # overrides from command line or config file
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
-# -----------------------------------------------------------------------------
-magicab_interval = 1000
 # -----------------------------------------------------------------------------
 
 # various inits, derived attributes, I/O setup
@@ -205,6 +201,7 @@ scaler = torch.cuda.amp.GradScaler(enabled=(dtype == 'float16'))
 optimizer = model.configure_optimizers(weight_decay, learning_rate, (beta1, beta2), device_type)
 # if init_from == 'resume':
     # optimizer.load_state_dict(checkpoint['optimizer'])
+
 checkpoint = None # free up memory
 
 # compile the model
@@ -216,17 +213,6 @@ if compile:
 # wrap model into DDP container
 if ddp:
     model = DDP(model, device_ids=[ddp_local_rank])
-    
-# ETokenizer initialization 
-if checkpoint is not None: 
-    tokenizer = ETokenizer.load(checkpoint['tokenizer_path']) # load from checkpoint (model & tokenizer saved together)
-else: 
-    tokenizer = ETokenizer(char_vocab=meta['itos']) # load raw tokenizer from data meta information
-    
-# Magicab initialization
-magicab = Magicab(model=model, tokenizer=tokenizer, checkpoint_dir=out_dir)
-
-
 
 # helps estimate an arbitrarily accurate loss over either split using many batches
 @torch.no_grad()
@@ -362,7 +348,3 @@ while True:
 if ddp:
     destroy_process_group()
 pbar.close()  # close the progress bar
-
-# Save tokenizer
-print(f"Saving tokenizer with vocab_size: {magicab.tokenizer.vocab_size} into {os.path.join(out_dir, 'tokenizer.json')}")
-magicab.tokenizer.save(os.path.join(out_dir, 'tokenizer.json'))
