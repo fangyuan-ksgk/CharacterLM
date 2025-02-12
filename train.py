@@ -226,6 +226,8 @@ else:
 # Magicab initialization
 magicab = Magicab(model=model, tokenizer=tokenizer, checkpoint_dir=out_dir)
 
+
+
 # helps estimate an arbitrarily accurate loss over either split using many batches
 @torch.no_grad()
 def estimate_loss():
@@ -362,4 +364,5 @@ if ddp:
 pbar.close()  # close the progress bar
 
 # Save tokenizer
+print(f"Saving tokenizer with vocab_size: {magicab.tokenizer.vocab_size} into {os.path.join(out_dir, 'tokenizer.json')}")
 magicab.tokenizer.save(os.path.join(out_dir, 'tokenizer.json'))

@@ -319,5 +319,7 @@ def save_magicab(checkpoint, magicab,
         "tokenizer_path": tokenizer_path
     }
     
+    print(f"Saving model checkpoint to {model_ckpt_path}")
     torch.save(new_checkpoint, model_ckpt_path)
+    print(f"Saving tokenizer with vocab_size: {new_tokenizer.vocab_size} to {tokenizer_path}")
     new_tokenizer.save(tokenizer_path)

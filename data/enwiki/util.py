@@ -47,7 +47,7 @@ def clean_wiki_text(content):
 
 
 
-def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/play"):
+def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/base"):
     """
     Prepare the enwiki dataset for language modeling.
     Args:
@@ -126,6 +126,8 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
     
     os.makedirs("checkpoint", exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
+    
+    print(f"Saving tokenizer with vocab_size: {tokenizer.vocab_size} into {os.path.join(checkpoint_dir, 'tokenizer.json')}")
     tokenizer.save(os.path.join(checkpoint_dir, 'tokenizer.json'))
         
     with open(os.path.join(data_dir, 'meta.pkl'), 'wb') as f:
