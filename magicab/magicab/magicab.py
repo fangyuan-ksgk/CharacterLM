@@ -294,14 +294,13 @@ def compute_bpc(x, y, model, tokenizer):
     per_token_nll = model(x, y, reduction='none')[1]
     per_token_char_count = [[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in x]
     per_token_char_count = torch.tensor(per_token_char_count)
-    # Convert from nats to bits by dividing by ln(2)
     per_char_bits = per_token_nll.to("cpu").detach() / per_token_char_count / torch.log(torch.tensor(2.0))
     return per_char_bits
 
-def evaluate_bpc(model, tokenizer, get_batch, num_batches=10):
+def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device_type, device, num_batches=10):
     total_bpc = 0 
     for _ in tqdm(range(num_batches), desc="Evaluating BPC"): 
-        x, y = get_batch('val')
+        x, y = get_batch('val', data_dir, block_size, batch_size, device_type, device)
         bpc_loss = compute_bpc(x, y, model, tokenizer)
         total_bpc += bpc_loss.mean()
     return total_bpc / num_batches
