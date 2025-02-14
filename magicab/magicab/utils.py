@@ -195,7 +195,10 @@ def _pad_batch_inference(model, tokenizer, input_ids, target_ids,
     return res 
 
 
-def batch_inference(model, tokenizer, input_ids, target_ids, 
+def batch_inference(model, 
+                    tokenizer, 
+                    input_ids, 
+                    target_ids, 
                     return_char_perplexity: bool = False,
                     return_representation: bool = False,
                     device: str = "cuda",
@@ -239,7 +242,9 @@ def batch_inference(model, tokenizer, input_ids, target_ids,
     return res 
     
     
-def inference(model, tokenizer,
+def inference(model, 
+              tokenizer,
+              output_tokenizer = None,
               text = None, 
               input_ids = None, 
               target_ids = None,
@@ -253,6 +258,9 @@ def inference(model, tokenizer,
     valid_batch = (input_ids is not None and target_ids is not None) and (input_ids.shape == target_ids.shape)
     assert valid_text or valid_batch, "Either text or input_ids and target_ids must be provided"
     
+    if output_tokenizer is None:  # same tokenizer for input and output
+        output_tokenizer = tokenizer
+        
     if valid_text: 
         texts = text if isinstance(text, list) else [text]
         token_ids_list = [torch.tensor(tokenizer.encode(t), dtype=torch.long) for t in texts]
@@ -272,12 +280,12 @@ def inference(model, tokenizer,
         
     else: 
         token_ids = torch.cat([input_ids, target_ids[:, -1:]], dim=1)
-        texts = [tokenizer.decode(token_ids[i].tolist()) for i in range(token_ids.size(0))]
+        texts = [output_tokenizer.decode(token_ids[i].tolist()) for i in range(token_ids.size(0))]
     
     if pad: 
-        res = _pad_batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device, return_device=return_device)
+        res = _pad_batch_inference(model, output_tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device, return_device=return_device)
     else: 
-        res = batch_inference(model, tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device, return_device=return_device)
+        res = batch_inference(model, output_tokenizer, input_ids, target_ids, return_char_perplexity, return_representation, device=device, return_device=return_device)
     
     res['texts'] = texts
     res["char_token_mask"] = ~torch.isin(res["token_ids"], torch.tensor(tokenizer.special_ids).to(return_device)) # character & merge tokens

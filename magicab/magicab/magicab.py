@@ -7,19 +7,24 @@ from .utils import calculate_bits_per_char, shift_token_loss, short_one, inferen
 from .vis import visualize_text_multiline
 from .grouping import detect_spike_token_batch, detect_remove_token_batch, detect_group_token_batch
 from .utils import prep_char_perplexity_batch, get_char_perplexity_batch
-from .vocab_update import _cache_vocabulary_change, add_to_vocab, remove_from_vocab
+from .vocab_update import _cache_vocabulary_change, add_to_vocab, remove_from_vocab, _cache_input_vocabulary_change, add_to_input_vocab
 import gc
 
 class Magicab:
     """Manages joint updates to both model vocabulary and tokenizer vocabulary"""
     
-    def __init__(self, model, tokenizer, spike_quantile_threshold=0.8, group_quantile_threshold=0.6, 
+    def __init__(self, model, 
+                 tokenizer, 
+                 base_tokenizer = None, 
+                 spike_quantile_threshold=0.8, 
+                 group_quantile_threshold=0.6, 
                  spike_perplexity_threshold=None, 
                  group_perplexity_threshold=None, 
                  checkpoint_dir: str = "checkpoint/base",
                  device: str = "cuda" if torch.cuda.is_available() else "mps"):
         self.model = model
         self.tokenizer = tokenizer
+        self.base_tokenizer = base_tokenizer if base_tokenizer is not None else tokenizer
         self.spike_quantile_threshold = spike_quantile_threshold
         self.group_quantile_threshold = group_quantile_threshold
         self.spike_perplexity_threshold = spike_perplexity_threshold
@@ -45,16 +50,24 @@ class Magicab:
     def inference(self, text = None, input_ids = None, target_ids = None, pad: bool = False, 
                     return_representation: bool = False, return_char_perplexity: bool = False,
                     return_device: str = "cpu"): 
-        return inference(self.model, self.tokenizer, text, input_ids, target_ids, pad, return_representation, return_char_perplexity, device=self.device, return_device=return_device)
+        return inference(self.model, self.tokenizer, self.base_tokenizer, text, input_ids, target_ids, pad, return_representation, return_char_perplexity, device=self.device, return_device=return_device)
     
     def cache_vocab_change(self, text = None, input_ids = None, target_ids = None, pad: bool = False, avoid_duplicate: bool = False, cal_mask_device: str = "cpu"):         
         _cache_vocabulary_change(self, text, input_ids, target_ids, avoid_duplicate, cal_mask_device)
+        
+    def cache_input_vocab_change(self, text = None, input_ids = None, target_ids = None, avoid_duplicate: bool = False, cal_mask_device: str = "cpu"):         
+        _cache_input_vocabulary_change(self, text, input_ids, target_ids, avoid_duplicate, cal_mask_device)
         
     def update_vocab(self, max_size_change: int = 500):
         """Updates both model and tokenizer vocabularies based on perplexity patterns"""
         add_to_vocab(self, max_size_change)
         print(" - add_to_vocab done")
         # remove_from_vocab(self, max_size_change) # is it possible to remove in wrong order? (removing (100) before removing (102 = (100, 101)) ?)
+        self.reset_update_info()
+        
+    def update_input_vocab(self, max_size_change: int = 5000): 
+        add_to_input_vocab(self, max_size_change)
+        print(" - add_to_input_vocab done")
         self.reset_update_info()
 
     def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo", return_device: str = "cpu"): 
@@ -66,27 +79,27 @@ class Magicab:
         texts, token_ids, token_perplexity, char_token_mask = res['texts'], res['token_ids'], res['token_perplexity'], res['char_token_mask']
         decode = lambda x: self.tokenizer.decode(x)
 
-        # (a). Spiking token visualization
-        spike_color = 'pink'
-        spike_token_indices, spike_token_mask, spike_token_groups = detect_spike_token_batch(token_perplexity, quantile_threshold=self.spike_quantile_threshold, perplexity_threshold=self.spike_perplexity_threshold, color=spike_color, char_token_mask=char_token_mask)
-        char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, spike_token_mask, spike_token_groups, char_token_mask, decode, mask_color=spike_color)
+        # # (a). Spiking token visualization
+        # spike_color = 'pink'
+        # spike_token_indices, spike_token_mask, spike_token_groups = detect_spike_token_batch(token_perplexity, quantile_threshold=self.spike_quantile_threshold, perplexity_threshold=self.spike_perplexity_threshold, color=spike_color, char_token_mask=char_token_mask)
+        # char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, spike_token_mask, spike_token_groups, char_token_mask, decode, mask_color=spike_color)
 
-        file_name = "spike"
+        # file_name = "spike"
 
-        for text, char_color, group in zip(texts, char_colors, char_groups): 
-            text_str = text.replace(" ", "")[:15]
-            visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Spiking Token', output_path=os.path.join(self.log_dir, f"{file_name}_spike_{text_str}.png"))
+        # for text, char_color, group in zip(texts, char_colors, char_groups): 
+        #     text_str = text.replace(" ", "")[:15]
+        #     visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Spiking Token', output_path=os.path.join(self.log_dir, f"{file_name}_spike_{text_str}.png"))
             
             
-        # (b). Remove token visualization 
-        remove_color = 'orange'
-        tokens_to_remove, remove_token_indices, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, perplexity_threshold=self.spike_perplexity_threshold, color=remove_color, char_token_mask=char_token_mask)
-        char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, remove_token_mask, remove_token_groups, char_token_mask, decode, mask_color=remove_color)
+        # # (b). Remove token visualization 
+        # remove_color = 'orange'
+        # tokens_to_remove, remove_token_indices, remove_token_mask, remove_token_groups = detect_remove_token_batch(token_ids, token_perplexity, self.tokenizer, quantile_threshold=self.spike_quantile_threshold, perplexity_threshold=self.spike_perplexity_threshold, color=remove_color, char_token_mask=char_token_mask)
+        # char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, remove_token_mask, remove_token_groups, char_token_mask, decode, mask_color=remove_color)
 
-        file_name = "remove"
-        for text, char_color, group in zip(texts, char_colors, char_groups): 
-            text_str = text.replace(" ", "")[:15]
-            visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Remove Token', output_path=os.path.join(self.log_dir, f"{file_name}_remove_{text_str}.png"))
+        # file_name = "remove"
+        # for text, char_color, group in zip(texts, char_colors, char_groups): 
+        #     text_str = text.replace(" ", "")[:15]
+        #     visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Remove Token', output_path=os.path.join(self.log_dir, f"{file_name}_remove_{text_str}.png"))
             
             
         # (c). Group token visualization 
