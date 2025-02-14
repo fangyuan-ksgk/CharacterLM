@@ -28,7 +28,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
-
+from spline_model import SplineGPTConfig, SplineGPT
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
@@ -40,6 +40,7 @@ eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = True # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
+model_type = "SplineGPT"
 # wandb logging
 wandb_log = False # disabled by default
 wandb_project = 'owt'
@@ -155,8 +156,12 @@ if init_from == 'scratch':
     if meta_vocab_size is None:
         print("defaulting to vocab_size of GPT-2 to 50304 (50257 rounded up for efficiency)")
     model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50304
-    gptconf = GPTConfig(**model_args)
-    model = GPT(gptconf)
+    if model_type == "GPT": 
+        gptconf = GPTConfig(**model_args)
+        model = GPT(gptconf)
+    elif model_type == "SplineGPT": 
+        splineconf = SplineGPTConfig(**model_args)
+        model = SplineGPT(splineconf)
 elif init_from == 'resume':
     print(f"Resuming training from {out_dir}")
     # resume training from a checkpoint.
@@ -165,11 +170,19 @@ elif init_from == 'resume':
     checkpoint_model_args = checkpoint['model_args']
     # force these config attributes to be equal otherwise we can't even resume training
     # the rest of the attributes (e.g. dropout) can stay as desired from command line
-    for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
-        model_args[k] = checkpoint_model_args[k]
-    # create the model
-    gptconf = GPTConfig(**model_args)
-    model = GPT(gptconf)
+    if model_type == "GPT": 
+        for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
+            model_args[k] = checkpoint_model_args[k]
+        # create the model
+        gptconf = GPTConfig(**model_args)
+        model = GPT(gptconf)
+    elif model_type == "SplineGPT": 
+        for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size', 'spline_control_layers']:
+            model_args[k] = checkpoint_model_args[k]
+        # create the model
+        splineconf = SplineGPTConfig(**model_args)
+        model = SplineGPT(splineconf)
+        
     state_dict = checkpoint['model']
     # fix the keys of the state dictionary :(
     # honestly no idea how checkpoints sometimes get this prefix, have to debug more
@@ -181,6 +194,7 @@ elif init_from == 'resume':
     iter_num = checkpoint['iter_num']
     best_val_loss = checkpoint['best_val_loss']
 elif init_from.startswith('gpt2'):
+    assert model_type == "GPT", "Only GPT is supported for loading from GPT-2 weights"
     print(f"Initializing from OpenAI GPT-2 weights: {init_from}")
     # initialize from OpenAI GPT-2 weights
     override_args = dict(dropout=dropout)

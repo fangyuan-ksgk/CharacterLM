@@ -130,8 +130,7 @@ class SplineGPT(nn.Module):
         assert config.vocab_size is not None
         assert config.block_size is not None
         self.config = config
-        self.control_layers = getattr(config, 'spline_control_layers', None)
-
+        self.control_layers = config.spline_control_layers
 
         self.spline_transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.vocab_size, config.n_embd),
@@ -205,7 +204,7 @@ class SplineGPT(nn.Module):
         x = self.spline_transformer.drop(x)
         
         # Pass through transformer blocks
-        for i, block in enumerate(self.transformer.h):  # Note: using self.transformer.h
+        for i, block in enumerate(self.spline_transformer.h):
             if self.control_layers is not None and i in self.control_layers:
                 x = x + spline_emb
             x = block(x)
