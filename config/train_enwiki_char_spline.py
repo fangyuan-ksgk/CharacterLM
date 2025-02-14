@@ -19,7 +19,7 @@ batch_size = 64
 block_size = 512 # context of up to 512 previous characters
 
 # baby GPT model :)
-model_type = "GPT"
+model_type = "SplineGPT"
 n_layer = 6
 n_head = 6
 n_embd = 384

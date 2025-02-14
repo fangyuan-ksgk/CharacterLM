@@ -159,9 +159,11 @@ if init_from == 'scratch':
     if model_type == "GPT": 
         gptconf = GPTConfig(**model_args)
         model = GPT(gptconf)
+        print("Total number of parameters: %.2fM" % (model.get_num_params()/1e6,))
     elif model_type == "SplineGPT": 
         splineconf = SplineGPTConfig(**model_args)
         model = SplineGPT(splineconf)
+        print("Total number of parameters: %.2fM" % (model.get_num_params()/1e6,))
 elif init_from == 'resume':
     print(f"Resuming training from {out_dir}")
     # resume training from a checkpoint.
