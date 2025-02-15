@@ -1,4 +1,4 @@
-run_dir="checkpoint/run3"
+run_dir="checkpoint/run4"
 mkdir -p $run_dir
 
 python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base"

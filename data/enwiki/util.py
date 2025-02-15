@@ -47,7 +47,7 @@ def clean_wiki_text(content):
 
 
 
-def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/base", tokenizer_path=None):
+def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/base", tokenizer_path=""):
     """
     Prepare the enwiki dataset for language modeling.
     Args:
@@ -75,13 +75,13 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
         data = f.read()   
 
     # Use custom tokenizer if provided, otherwise use char-level tokenization
-    if tokenizer is None and tokenizer_path is None:
+    if tokenizer is None and tokenizer_path == "":
         # Character-level tokenization
         chars = sorted(list(set(data)))
         stoi = { ch:i for i,ch in enumerate(chars) }
         itos = { i:ch for i,ch in enumerate(chars) }
         tokenizer = ETokenizer(char_vocab=itos)
-    elif tokenizer_path is not None: 
+    elif tokenizer_path != "":  # load tokenizer from path
         tokenizer = ETokenizer.load(tokenizer_path)
     else: 
         tokenizer = tokenizer
