@@ -67,5 +67,5 @@ print(f"BPC of loaded checkpoint: {bpc}")
 
 # Save info 
 info = {"run_idx": run_idx, "bpc": bpc, "model_type": model_type, "config": checkpoint['model_args']}
-with open(os.path.join(out_dir, f"info_{run_idx}.json"), "w") as f:
-    json.dump(info, f)
+with open(os.path.join(out_dir, f"info_{run_idx}.pkl"), "wb") as f:
+    pickle.dump(info, f)
