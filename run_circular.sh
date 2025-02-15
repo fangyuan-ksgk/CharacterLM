@@ -5,6 +5,11 @@ python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base"
 python train.py config/train_enwiki_char.py --out_dir="$run_dir/base"
 python eval.py --model_type="GPT" --out_dir="$run_dir/base" --run_idx=0
 
+
+python update.py --out_dir="checkpoint/run3/base" --new_dir="checkpoint/run3/increase_iter1_raw" \
+        --thres=0.3 --max_size_change=3000
+
+# debug above :: we are not adding to the vocabulary .. rest seems fine ...
 # growing vocabulary training 
 
 num_iterations=5  # Adjust this number as needed
@@ -12,7 +17,7 @@ for iter in $(seq 1 $num_iterations); do
     prev_iter=$((iter - 1))
     prev_dir="$run_dir/$([ $prev_iter -eq 0 ] && echo 'base' || echo "increase_iter${prev_iter}")"
     
-    # Update vocabulary
+    # Update vocabulary | this is buggy, failed vocabulary increase here (!) - TBD - debug this
     python update.py --out_dir="$prev_dir" --new_dir="$run_dir/increase_iter${iter}_raw" \
         --thres=0.3 --max_size_change=3000
     
@@ -29,13 +34,11 @@ done
 
 # load checkpoint -- that's the key here 
 num_iterations=10 
-run_dir="checkpoint/run3"
-readarray -t vocab_sizes < <(python get_vocab_size.py --checkpoint_dir="$run_dir/increase_iter5" --num_iterations=$num_iterations --base_vocab_size=92)
-prev_iter=0
-iter=1
-prev_dir="$run_dir/$([ $prev_iter -eq 0 ] && echo 'increase_iter5' || echo "decrease_iter${prev_iter}")"
-python update.py --out_dir="$prev_dir" --new_dir="$run_dir/decrease_iter1_raw" \
-        --truncate_vocab=True --target_vocab_size=92
+
+# Get vocabulary sizes and convert from Python list to bash array
+vocab_sizes_str=$(python get_vocab_size.py --checkpoint_dir="$run_dir/increase_iter5" --num_iterations=$num_iterations --base_vocab_size=92)
+# Remove brackets and split into array
+vocab_sizes=($(echo $vocab_sizes_str | tr -d '[]' | tr ',' ' '))
 
 for iter in $(seq 1 $num_iterations); do
     prev_iter=$((iter - 1))

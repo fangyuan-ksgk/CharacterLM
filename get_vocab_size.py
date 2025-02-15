@@ -18,7 +18,7 @@ def main():
 
     # Get the vocab size from the tokenizer
     vocab_size = tokenizer.vocab_size
-    
+
     # create log-linear interpolation between vocab_size and base_vocab_size
     vocab_sizes = np.logspace(np.log10(vocab_size), np.log10(args.base_vocab_size), args.num_iterations + 1)
     vocab_sizes = np.round(vocab_sizes).astype(int).tolist()
