@@ -1,16 +1,8 @@
-run_dir="checkpoint/run4"
+run_dir="checkpoint/run3"
 mkdir -p $run_dir
-
 python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base"
 python train.py config/train_enwiki_char.py --out_dir="$run_dir/base"
 python eval.py --model_type="GPT" --out_dir="$run_dir/base" --run_idx=0
-
-
-python update.py --out_dir="checkpoint/run3/base" --new_dir="checkpoint/run3/increase_iter1_raw" \
-        --thres=0.3 --max_size_change=3000
-
-# debug above :: we are not adding to the vocabulary .. rest seems fine ...
-# growing vocabulary training 
 
 num_iterations=5  # Adjust this number as needed
 for iter in $(seq 1 $num_iterations); do
