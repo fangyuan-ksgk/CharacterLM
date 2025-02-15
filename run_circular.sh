@@ -28,8 +28,14 @@ done
 # decreasing vocabulary training 
 
 # load checkpoint -- that's the key here 
-num_iterations=10 # match sucessful runs
+num_iterations=10 
+run_dir="checkpoint/run3"
 readarray -t vocab_sizes < <(python get_vocab_size.py --checkpoint_dir="$run_dir/increase_iter5" --num_iterations=$num_iterations --base_vocab_size=92)
+prev_iter=0
+iter=1
+prev_dir="$run_dir/$([ $prev_iter -eq 0 ] && echo 'increase_iter5' || echo "decrease_iter${prev_iter}")"
+python update.py --out_dir="$prev_dir" --new_dir="$run_dir/decrease_iter1_raw" \
+        --truncate_vocab=True --target_vocab_size=92
 
 for iter in $(seq 1 $num_iterations); do
     prev_iter=$((iter - 1))
