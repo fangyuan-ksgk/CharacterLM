@@ -1,8 +1,8 @@
-This experiment incremet vocabulary size with magicab and train from-scratch a LLM on bigger and bigger vocabularies. We observe a linear increase in BPC as vocabulary size increases. 
+This experiment curriculum learning via scaling up vocabulary size from 92 to 14k. Continuously training the transformer blocks with the GPT, while adding to embedding and projection weights. Compared to naive baseline on 14k vocab, BPC improves from 8.9 to 1.9. 
 
 # Plot 
 
-![BPC vs Vocab Size](BPC-vs-VocabSize.png)
+![Vocabulary Curriculum Learning: scales up vocabulary from 92 to 14k](vocabcurriculum_scaleup.png)
 
 # Conclusion
 

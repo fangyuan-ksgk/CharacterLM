@@ -2,7 +2,6 @@ import os
 import pickle
 from contextlib import nullcontext
 import torch
-import tiktoken
 import numpy as np 
 from model import GPTConfig, GPT
 from magicab import ETokenizer, Magicab, update_magicab, save_magicab
