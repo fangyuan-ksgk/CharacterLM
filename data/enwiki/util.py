@@ -82,7 +82,7 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
         itos = { i:ch for i,ch in enumerate(chars) }
         tokenizer = ETokenizer(char_vocab=itos)
     elif tokenizer_path is not None: 
-        tokenizer = ETokenizer.from_file(tokenizer_path)
+        tokenizer = ETokenizer.load(tokenizer_path)
     else: 
         tokenizer = tokenizer
            
