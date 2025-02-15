@@ -6,4 +6,5 @@ This experiment curriculum learning via scaling up vocabulary size from 92 to 14
 
 # Conclusion
 
+![Vocabulary Curriculum Learning: scales up vocabulary from 92 to 14k](scaleImprovement.png)
 From-scratch training on bigger vocabularies trades off BPC for more concise representations. 
