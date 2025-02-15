@@ -406,3 +406,25 @@ def remove_from_vocab(self, max_size_change: int = 500):
     new_wte = remove_token_wte(self.model.transformer.wte, tokens_to_remove)
     new_lm_head = remove_token_lm_head(self.model.lm_head, tokens_to_remove)
     update_model(self, new_wte, new_lm_head)
+    
+
+# truncate vocab size of model
+def truncate_model(model, target_vocab_size: int):
+    # Get current dimensions
+    hidden_dim = model.transformer.wte.weight.size(1)
+    
+    # Create new embedding layer with truncated size
+    new_wte = torch.nn.Embedding(target_vocab_size, hidden_dim)
+    new_wte.weight.data = model.transformer.wte.weight.data[:target_vocab_size]
+    
+    # Create new linear layer with truncated size
+    new_lm_head = torch.nn.Linear(hidden_dim, target_vocab_size, bias=model.lm_head.bias is not None)
+    new_lm_head.weight.data = model.lm_head.weight.data[:target_vocab_size]
+    if model.lm_head.bias is not None:
+        new_lm_head.bias.data = model.lm_head.bias.data[:target_vocab_size]
+    
+    # Update the model's layers
+    model.transformer.wte = new_wte
+    model.lm_head = new_lm_head
+    
+    return model

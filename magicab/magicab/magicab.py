@@ -7,7 +7,7 @@ from .utils import calculate_bits_per_char, shift_token_loss, short_one, inferen
 from .vis import visualize_text_multiline
 from .grouping import detect_spike_token_batch, detect_remove_token_batch, detect_group_token_batch
 from .utils import prep_char_perplexity_batch, get_char_perplexity_batch
-from .vocab_update import _cache_vocabulary_change, add_to_vocab, remove_from_vocab, _cache_input_vocabulary_change, add_to_input_vocab
+from .vocab_update import _cache_vocabulary_change, add_to_vocab, remove_from_vocab, _cache_input_vocabulary_change, add_to_input_vocab, truncate_model
 import gc
 
 class Magicab:
@@ -69,6 +69,11 @@ class Magicab:
         add_to_input_vocab(self, max_size_change)
         print(" - add_to_input_vocab done")
         self.reset_update_info()
+        
+    def truncate_vocab(self, target_vocab_size: int): 
+        """Truncate vocabulary to target size"""
+        self.tokenizer.truncate_vocab(target_vocab_size)
+        self.model = truncate_model(self.model, target_vocab_size)
 
     def visualize_changes(self, texts = None, input_ids = None, target_ids = None, file_name: str = "demo", return_device: str = "cpu"): 
         

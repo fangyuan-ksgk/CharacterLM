@@ -104,6 +104,12 @@ class TokenTrie:
             
         # Remove associated merges
         self.remove_merge(token_id)
+        
+    def truncate_vocab(self, target_vocab_size: int): 
+        """Truncate vocabulary to target size"""
+        self.id2token = {k: v for k, v in self.id2token.items() if k < target_vocab_size}
+        self.token2id = {v: k for k, v in self.id2token.items()}
+        self.merges = {k: v for k, v in self.merges.items() if v < target_vocab_size}
 
     def find_token(self, token: str) -> int:
         """Find token ID using trie structure for faster lookups.
@@ -395,6 +401,42 @@ class ETokenizer:
         else:
             return eom_tokens, pair_token_groups
         
+    def truncate_vocab(self, target_vocab_size: int):
+        """Truncate vocabulary to target size while preserving special tokens"""
+        # Calculate minimum allowed vocabulary size
+        min_vocab_size = len(self.char_vocab) + len(self.special_tokens)
+        
+        if target_vocab_size < min_vocab_size:
+            raise ValueError(
+                f"Target vocabulary size ({target_vocab_size}) cannot be smaller than "
+                f"base vocabulary size ({min_vocab_size}: {len(self.char_vocab)} chars + "
+                f"{len(self.special_tokens)} special tokens)"
+            )
+            
+        # Preserve special tokens
+        special_ids = set(self.special_ids)
+        
+        # Filter vocabulary while preserving special tokens
+        self.token_trie.id2token = {
+            k: v for k, v in self.token_trie.id2token.items() 
+            if k < target_vocab_size or k in special_ids
+        }
+        self.token_trie.token2id = {v: k for k, v in self.token_trie.id2token.items()}
+        
+        # Filter merges
+        self.token_trie.merges = {
+            k: v for k, v in self.token_trie.merges.items() 
+            if v < target_vocab_size or v in special_ids
+        }
+        
+        # Rebuild trie structure
+        new_trie = TokenTrie()
+        for token_id, token in self.token_trie.id2token.items():
+            new_trie.add_token(token, token_id)
+        new_trie.merges = self.token_trie.merges
+        new_trie.next_id = target_vocab_size
+        
+        self.token_trie = new_trie
         
     def identify_splittable_tokens(self, tokens_to_split): 
         

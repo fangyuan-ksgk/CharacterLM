@@ -18,6 +18,9 @@ block_size=256 # context length of model
 batch_size=256 # batch size of training data
 max_size_change = 2000 # max number of tokens to add
 thres = 0.6 # below this threshold, tokens will be grouped together
+target_vocab_size = 92 # directly truncate to base vocabulary size
+truncate_vocab = True # whether to truncate vocabulary or not
+
 exec(open('configurator.py').read()) # overrides from command line or config file
 # -----------------------------------------------------------------------------
 
@@ -56,12 +59,15 @@ magicab = Magicab(tokenizer=tokenizer, model=model, checkpoint_dir=out_dir,
 data_dir = os.path.join('data', 'enwiki')
 
 # Update Magicab Vocabulary 
-update_magicab(magicab, 
-               data_dir, 
-               block_size=block_size, 
-               batch_size=batch_size, 
-               device_type=device,
-               max_size_change=max_size_change)
+if truncate_vocab: 
+    magicab.truncate_vocab(target_vocab_size)
+else: 
+    update_magicab(magicab, 
+                data_dir, 
+                block_size=block_size, 
+                batch_size=batch_size, 
+                device_type=device,
+                max_size_change=max_size_change)
 
 print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size) # Issue : not actually updated ... 
 
