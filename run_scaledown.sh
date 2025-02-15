@@ -33,16 +33,3 @@ for i in {2..9}; do
     python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="$run_dir/iter${i}"
     python eval.py --model_type="GPT" --out_dir="$run_dir/iter${i}" --run_idx=$i
 done
-
-
-
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/base" --run_idx=0
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter1" --run_idx=1
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter2" --run_idx=2
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter3" --run_idx=3
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter4" --run_idx=4
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter5" --run_idx=5
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter6" --run_idx=6
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter7" --run_idx=7
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter8" --run_idx=8
-python eval.py --model_type="GPT" --out_dir="checkpoint/run2/iter9" --run_idx=9
