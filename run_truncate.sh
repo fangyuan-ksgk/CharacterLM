@@ -13,3 +13,5 @@ cp -r $run_dir/iter1_raw/* $run_dir/iter1
 python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="$run_dir/iter1"
 python eval.py --model_type="GPT" --out_dir="$run_dir/iter1" --run_idx=1
 
+
+python train.py config/train_enwiki_char.py --out_dir="checkpoint/run2/base" --wandb_log=False
