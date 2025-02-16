@@ -377,11 +377,12 @@ def add_to_vocab(self, max_size_change: int = 500):
     else: 
         new_lm_head = self.model.lm_head
         
-    assert new_wte.weight.shape[0].item() == new_lm_head.weight.shape[0].item(), "vocab size mismatch between wte and lm_head"
-    assert self.tokenizer.vocab_size == new_wte.weight.shape[0].item(), "vocab size mismatch between tokenizer and wte"
+    assert new_wte.weight.shape[0] == new_lm_head.weight.shape[0], "vocab size mismatch between wte and lm_head"
+    assert self.tokenizer.vocab_size == new_wte.weight.shape[0], "vocab size mismatch between tokenizer and wte"
     print(":: Vocab size matches between updated tokenizer and model in line 375.")
     
     update_model(self, new_wte, new_lm_head)
+    print(":: Updated model vocab size: ", self.model.lm_head.weight.shape[0])
     
 def add_to_input_vocab(self, max_size_change: int = 5000): 
     
