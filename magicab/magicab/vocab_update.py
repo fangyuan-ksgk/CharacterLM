@@ -362,6 +362,7 @@ def add_to_vocab(self, max_size_change: int = 500):
         print(":: Original WTE vocab size: ", self.model.transformer.wte.weight.shape[0])
         embed_vecs = torch.stack([self.embed_cache[id] for id in eom_tokens])
         new_wte = add_token_wte(self.model.transformer.wte, embed_vecs)
+        print(":: Added vocab size: ", new_wte.weight.shape[0] - self.model.transformer.wte.weight.shape[0])
         print(":: New WTE vocab size: ", new_wte.weight.shape[0])
     else: 
         new_wte = self.model.transformer.wte
@@ -371,6 +372,7 @@ def add_to_vocab(self, max_size_change: int = 500):
         print(":: Original LM head vocab size: ", self.model.lm_head.weight.shape[0])
         project_vecs = torch.stack([self.project_cache[id] for id in eom_tokens])
         new_lm_head = add_token_lm_head(self.model.lm_head, project_vecs)
+        print(":: Added vocab size: ", new_lm_head.weight.shape[0] - self.model.lm_head.weight.shape[0])
         print(":: New LM head vocab size: ", new_lm_head.weight.shape[0])
     else: 
         new_lm_head = self.model.lm_head

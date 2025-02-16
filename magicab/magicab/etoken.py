@@ -384,7 +384,9 @@ class ETokenizer:
                 
         add_merge_count = len(self.token_trie.merges) - len(merges)
         eom_token_count = len(eom_tokens)
+        print(":: Original vocab size: ", len(vocab))
         print(f":: Adding {add_merge_count} merges, {eom_token_count} eom tokens")
+        print(":: New vocab size: ", len(self.token_trie.id2token))
         assert add_merge_count == eom_token_count, "merge count and eom token count mismatch"
 
         return vocab, merges, eom_tokens, pair_token_groups, pair_token_positions
