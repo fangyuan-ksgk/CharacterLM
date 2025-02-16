@@ -18,7 +18,7 @@ batch_size=256 # batch size of training data
 max_size_change = 2000 # max number of tokens to add
 thres = 0.6 # below this threshold, tokens will be grouped together
 target_vocab_size = 92 # directly truncate to base vocabulary size
-truncate_vocab = True # whether to truncate vocabulary or not
+truncate_vocab = False # whether to truncate vocabulary or not
 
 exec(open('configurator.py').read()) # overrides from command line or config file
 # -----------------------------------------------------------------------------
@@ -59,8 +59,10 @@ data_dir = os.path.join('data', 'enwiki')
 
 # Update Magicab Vocabulary 
 if truncate_vocab: 
+    print("Truncating vocabulary to target size: ", target_vocab_size)
     magicab.truncate_vocab(target_vocab_size)
 else: 
+    print("Growing vocabulary with maximum size change: ", max_size_change)
     update_magicab(magicab, 
                 data_dir, 
                 block_size=block_size, 
