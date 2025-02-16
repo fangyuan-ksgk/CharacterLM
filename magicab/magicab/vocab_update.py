@@ -355,18 +355,23 @@ def add_to_vocab(self, max_size_change: int = 500):
 
     print(f":: Total {len(tokens_to_group)} token groups, added {len(pair_token_groups)} pairwise merges")
     print(f":: Total {len(eom_tokens)} new tokens added")
+    print(f":: Total {len(eom_tokens)} new embeddings to be added into model")
     
     # wte addition 
     if len(eom_tokens) > 0: 
+        print(":: Original WTE vocab size: ", self.model.transformer.wte.weight.shape[0])
         embed_vecs = torch.stack([self.embed_cache[id] for id in eom_tokens])
         new_wte = add_token_wte(self.model.transformer.wte, embed_vecs)
+        print(":: New WTE vocab size: ", new_wte.weight.shape[0])
     else: 
         new_wte = self.model.transformer.wte
 
     # project addition 
     if len(eom_tokens) > 0: 
+        print(":: Original LM head vocab size: ", self.model.lm_head.weight.shape[0])
         project_vecs = torch.stack([self.project_cache[id] for id in eom_tokens])
         new_lm_head = add_token_lm_head(self.model.lm_head, project_vecs)
+        print(":: New LM head vocab size: ", new_lm_head.weight.shape[0])
     else: 
         new_lm_head = self.model.lm_head
         
