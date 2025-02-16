@@ -339,6 +339,10 @@ def save_magicab(checkpoint, magicab,
     new_model = magicab.model 
     new_tokenizer = magicab.tokenizer
     new_optimizer = new_model.configure_optimizers(checkpoint['config']['weight_decay'], checkpoint['config']['learning_rate'], (checkpoint['config']['beta1'], checkpoint['config']['beta2']), device_type=device)
+    
+    new_vocab_size = new_tokenizer.vocab_size 
+    assert new_vocab_size == new_model.lm_head.weight.shape[0], "vocab size mismatch between tokenizer and model"
+    assert new_vocab_size == new_model.transformer.wte.weight.shape[0], "vocab size mismatch between tokenizer and model"
      
     os.makedirs(out_dir, exist_ok=True)
     model_ckpt_path = os.path.join(out_dir, 'ckpt.pt')
@@ -354,7 +358,7 @@ def save_magicab(checkpoint, magicab,
         "tokenizer_path": tokenizer_path
     }
     
-    print(f"Saving model checkpoint with vocab_size: {new_model.lm_head.weight.shape[0]} to {model_ckpt_path}")
+    print(f"Saving model checkpoint with vocab_size: {new_vocab_size} to {model_ckpt_path}")
     torch.save(new_checkpoint, model_ckpt_path)
-    print(f"Saving tokenizer with vocab_size: {new_tokenizer.vocab_size} to {tokenizer_path}")
+    print(f"Saving tokenizer with vocab_size: {new_vocab_size} to {tokenizer_path}")
     new_tokenizer.save(tokenizer_path)
