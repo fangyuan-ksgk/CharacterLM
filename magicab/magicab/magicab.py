@@ -346,7 +346,6 @@ def save_magicab(checkpoint, magicab,
     assert new_vocab_size == new_model.lm_head.weight.shape[0], "vocab size mismatch between tokenizer and model"
     assert new_vocab_size == new_model.transformer.wte.weight.shape[0], "vocab size mismatch between tokenizer and model"
     
-    
     os.makedirs(out_dir, exist_ok=True)
     model_ckpt_path = os.path.join(out_dir, 'ckpt.pt')
     tokenizer_path = os.path.join(out_dir, 'tokenizer.json')
