@@ -33,9 +33,9 @@ class TokenTrie:
         self.merges = {}    # (id1, id2) -> merged_id
         self.next_id = 0
 
-    def add_token(self, token: str, token_id: int = None):
+    def add_token(self, token: str, token_id: int = None): # -> token_id, is_new
         if token in self.token2id:
-            return self.token2id[token]
+            return token_id, False
 
         if token_id is None:
             token_id = self.next_id
@@ -54,15 +54,16 @@ class TokenTrie:
         node.is_end = True
         node.token_id = token_id
 
-        return token_id
+        return token_id, True
 
     def add_merge(self, id1: int, id2: int):
         token1 = self.id2token[id1]
         token2 = self.id2token[id2]
         merged = token1 + token2
-        merged_id = self.add_token(merged)
-        self.merges[(id1, id2)] = merged_id
-        return merged_id
+        merged_id, is_new = self.add_token(merged)
+        if is_new: 
+            self.merges[(id1, id2)] = merged_id
+        return merged_id, is_new
     
     def remove_merge(self, token_id: int):
         """Remove all merges that produce or use the given token_id"""
@@ -342,7 +343,10 @@ class ETokenizer:
             return merged_id, None, None  # Remove unused next_id return value
 
         # Create new merge
-        merged_id = self.token_trie.add_merge(prefix_token_idx, curr_token_idx)
+        merged_id, is_new = self.token_trie.add_merge(prefix_token_idx, curr_token_idx)
+        if not is_new: 
+            return merged_id, None, None
+        
         return merged_id, self.token_trie.next_id, (merged_id, curr_token_idx)
 
     def _add_tokens(self, tokens_to_group, group_positions=None):
