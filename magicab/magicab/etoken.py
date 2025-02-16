@@ -339,7 +339,7 @@ class ETokenizer:
         # Check if merge already exists
         merged_id = self.token_trie.get_merge_result(prefix_token_idx, curr_token_idx)
         if merged_id is not None:
-            return merged_id, self.token_trie.next_id, None
+            return merged_id, None, None  # Remove unused next_id return value
 
         # Create new merge
         merged_id = self.token_trie.add_merge(prefix_token_idx, curr_token_idx)
@@ -381,7 +381,12 @@ class ETokenizer:
                     
                 
                 prefix_idx = merged_id
-    
+                
+        add_merge_count = len(self.token_trie.merges) - len(merges)
+        eom_token_count = len(eom_tokens)
+        print(f":: Added {add_merge_count} merges, {eom_token_count} eom tokens")
+        assert add_merge_count == eom_token_count, "merge count and eom token count mismatch"
+
         return vocab, merges, eom_tokens, pair_token_groups, pair_token_positions
 
     def add_tokens(self, tokens_to_group, group_positions=None, in_place=False):
