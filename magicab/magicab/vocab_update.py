@@ -369,6 +369,9 @@ def add_to_vocab(self, max_size_change: int = 500):
         new_lm_head = add_token_lm_head(self.model.lm_head, project_vecs)
     else: 
         new_lm_head = self.model.lm_head
+        
+    assert new_wte.weight.shape[0].item() == new_lm_head.weight.shape[0].item(), "vocab size mismatch between wte and lm_head"
+    assert self.tokenizer.vocab_size == new_wte.weight.shape[0].item(), "vocab size mismatch between tokenizer and wte"
     
     update_model(self, new_wte, new_lm_head)
     
