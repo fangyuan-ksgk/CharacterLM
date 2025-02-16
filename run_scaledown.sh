@@ -2,7 +2,7 @@
 
 run_dir="checkpoint/run2"
 
-python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base" --tokenizer_path="experiment/run2/big_vocab/tokenizer.json"
+python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base" --tokenizer_path="experiment/run3/big_vocab/tokenizer.json"
 
 python train.py config/train_enwiki_char.py --out_dir="$run_dir/base"
 python eval.py --model_type="GPT" --out_dir="$run_dir/base" --run_idx=0

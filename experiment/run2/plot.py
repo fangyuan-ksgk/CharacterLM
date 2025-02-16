@@ -12,7 +12,8 @@ def plot_bpc_vs_vocab_size(pkl_dir,
                            log_scale_vocab = False,
                            increase_vocab_size = False,
                            title: str = "BPC vs Vocab Size"):
-    pkl_path = pkl_dir + "/*.pkl"
+    # pkl_path = pkl_dir + "/*.pkl"
+    pkl_path = pkl_dir + "/decrease*.pkl"
     vocab_sizes = []
     bpcs = []
     for pkl_path in glob.glob(pkl_path):
@@ -24,6 +25,12 @@ def plot_bpc_vs_vocab_size(pkl_dir,
         bpcs.append(bpc)
 
     # Create a DataFrame for better plotting
+    _plot_bpc_vs_vocab(vocab_sizes, bpcs, log_scale_vocab, increase_vocab_size, title)
+    
+    
+    
+def _plot_bpc_vs_vocab(vocab_sizes, bpcs, log_scale_vocab, increase_vocab_size, title):
+    
     df = pd.DataFrame({
         'Vocabulary Size': vocab_sizes,
         'Bits per Character': bpcs
@@ -40,7 +47,7 @@ def plot_bpc_vs_vocab_size(pkl_dir,
         # Use the sorted order for both scatter and regression
         ax = sns.scatterplot(data=df, x='Log Vocabulary Size', y='Bits per Character', alpha=0.6)
         sns.regplot(data=df, x='Log Vocabulary Size', y='Bits per Character', 
-                   scatter=False, color='red')
+                    scatter=False, color='red')
         plt.xscale('log')
         if not increase_vocab_size:
             plt.gca().invert_xaxis()
@@ -48,23 +55,38 @@ def plot_bpc_vs_vocab_size(pkl_dir,
         plt.figure(figsize=(10, 6))
         ax = sns.scatterplot(data=df, x='Vocabulary Size', y='Bits per Character', alpha=0.6)
         sns.regplot(data=df, x='Vocabulary Size', y='Bits per Character', 
-                   scatter=False, color='red')
+                    scatter=False, color='red')
         if not increase_vocab_size:
             plt.gca().invert_xaxis()
 
     # Customize the plot
     plt.title(title, pad=15)
     plt.xlabel('Vocabulary Size')
+
+    plt.gca().set_xticklabels([])
+
+    if log_scale_vocab:
+        plt.xscale('log')  # Set log scale
+        ax.xaxis.set_major_formatter(plt.NullFormatter())  # Remove scientific notation
+        ax.xaxis.set_minor_formatter(plt.NullFormatter())  # Remove minor ticks
+        ax.xaxis.set_major_locator(plt.NullLocator())     # Remove major tick locations
+        ax.xaxis.set_minor_locator(plt.NullLocator())     # Remove minor tick locations
+        
+        plt.xticks(df['Log Vocabulary Size'], [f'{int(x):,}' for x in df['Vocabulary Size']], rotation=45)
+    else:
+        plt.xticks(df['Vocabulary Size'], [f'{int(x):,}' for x in df['Vocabulary Size']], rotation=45)
+
     plt.ylabel('Bits per Character (BPC)')
+
 
     min_idx = df['Vocabulary Size'].idxmin() if increase_vocab_size else df['Vocabulary Size'].idxmax()
     max_idx = df['Vocabulary Size'].idxmax() if increase_vocab_size else df['Vocabulary Size'].idxmin()
-    
+
     # Convert log values back to actual vocabulary sizes
     x_col = 'Vocabulary Size'  # Always use actual vocabulary size for plotting
     min_x = df[x_col].iloc[min_idx]
     max_x = df[x_col].iloc[max_idx]
-    
+
     # Add annotations for each point
     shift_magnitude = 80  # Define the magnitude of the shift once
     for idx, row in df.iterrows():
@@ -79,9 +101,11 @@ def plot_bpc_vs_vocab_size(pkl_dir,
             
         x = row['Vocabulary Size' if not log_scale_vocab else 'Log Vocabulary Size']
         y = row['Bits per Character']
-        plt.annotate(f'{anno_text} BPC: {y:.4f}',
+        # Show actual vocabulary size in annotation when using log scale
+        display_x = row['Vocabulary Size']  # Always use actual vocabulary size
+        plt.annotate(f'{anno_text} BPC: {y:.4f}\nVocab Size: {display_x}',
                     xy=(x, y),
-                    xytext=xyshift,  # Offset more to the right
+                    xytext=xyshift,
                     textcoords='offset points',
                     fontsize=10,
                     bbox=dict(boxstyle='round,pad=0.5', fc='white', alpha=0.7),
