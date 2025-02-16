@@ -341,9 +341,12 @@ def save_magicab(checkpoint, magicab,
     new_optimizer = new_model.configure_optimizers(checkpoint['config']['weight_decay'], checkpoint['config']['learning_rate'], (checkpoint['config']['beta1'], checkpoint['config']['beta2']), device_type=device)
     
     new_vocab_size = new_tokenizer.vocab_size 
+    new_token_vocab = new_tokenizer.vocab_size 
+    new_model_vocab = new_model.lm_head.weight.shape[0]
     assert new_vocab_size == new_model.lm_head.weight.shape[0], "vocab size mismatch between tokenizer and model"
     assert new_vocab_size == new_model.transformer.wte.weight.shape[0], "vocab size mismatch between tokenizer and model"
-     
+    
+    
     os.makedirs(out_dir, exist_ok=True)
     model_ckpt_path = os.path.join(out_dir, 'ckpt.pt')
     tokenizer_path = os.path.join(out_dir, 'tokenizer.json')
