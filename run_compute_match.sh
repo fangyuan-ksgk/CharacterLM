@@ -14,7 +14,7 @@ for iter in $(seq 1 $num_iterations); do
     curr_dir="${run_dir}/increase_iter${iter}"
     
     # prepare encoding data 
-    python data/enwiki/prepare_data.py --clean --out_dir="${curr_dir}" --tokenizer_path="${orig_run_dir}/tokenizer.json"
+    python data/enwiki/prepare_data.py --clean --out_dir="${curr_dir}" --tokenizer_path="${orig_dir}/tokenizer.json"
     
     # Train and evaluate
     python train.py config/train_enwiki_char.py --out_dir="${curr_dir}" --max_iters=${accumulated_iter}
@@ -32,7 +32,7 @@ for iter in $(seq 1 $num_iterations); do
     curr_dir="${run_dir}/decrease_iter${iter}"
     
     # prepare encoding data 
-    python data/enwiki/prepare_data.py --clean --out_dir="${curr_dir}" --tokenizer_path="${orig_run_dir}/tokenizer.json"
+    python data/enwiki/prepare_data.py --clean --out_dir="${curr_dir}" --tokenizer_path="${orig_dir}/tokenizer.json"
 
     # Train and evaluate
     python train.py config/train_enwiki_char.py --out_dir="${curr_dir}" --max_iters=${accumulated_iter}
