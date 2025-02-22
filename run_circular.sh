@@ -19,6 +19,8 @@ for iter in $(seq 1 $num_iterations); do
     
     # # Train and evaluate
     # python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="$run_dir/increase_iter${iter}"
+
+    python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/increase_iter${iter}" --tokenizer_path="$run_dir/increase_iter${iter}/tokenizer.json"
     python eval.py --model_type="GPT" --out_dir="$run_dir/increase_iter${iter}" --run_idx=$iter
 done
 
@@ -46,5 +48,7 @@ for iter in $(seq 1 $num_iterations); do
 
     # # Train and evaluate
     # python train.py config/train_enwiki_char.py --init_from="resume" --out_dir="$run_dir/decrease_iter${iter}"
+
+    python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/decrease_iter${iter}" --tokenizer_path="$run_dir/decrease_iter${iter}/tokenizer.json"
     python eval.py --model_type="GPT" --out_dir="$run_dir/decrease_iter${iter}" --run_idx=$iter
 done

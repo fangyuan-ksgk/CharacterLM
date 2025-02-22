@@ -360,6 +360,8 @@ def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, devi
     token_bpc_dict = {token: sum(bpc_list) / len(bpc_list) for token, bpc_list in token_bpc_dict.items()}
     
     return token_count_dict, token_bpc_dict
+
+# Stange: I don't see any difference in token vocabulary ? --> my dataset is not updated ?
     
     
 
