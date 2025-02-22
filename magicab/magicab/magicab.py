@@ -291,7 +291,6 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_s
     
     return magicab
 
-
 def get_batch(split, data_dir, block_size, batch_size, device_type, device):
     # We recreate np.memmap every batch to avoid a memory leak, as per
     # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
@@ -308,13 +307,6 @@ def get_batch(split, data_dir, block_size, batch_size, device_type, device):
     else:
         x, y = x.to(device), y.to(device)
     return x, y
-
-# def compute_bpc(x, y, model, tokenizer): # old version, prune to errors
-#     per_token_nll = model(x, y, reduction='none')[1]
-#     per_token_char_count = [[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in x]
-#     per_token_char_count = torch.tensor(per_token_char_count)
-#     per_char_bits = per_token_nll.to("cpu").detach() / per_token_char_count / torch.log(torch.tensor(2.0))
-#     return per_char_bits
 
 def compute_bpc(x, y, model, tokenizer): # corrected version
     per_token_nll = model(x, y, reduction='none')[1]  # shape: [batch_size, seq_len]
@@ -350,8 +342,6 @@ def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device_type
         bpc_loss = compute_bpc(x, y, model, tokenizer)
         total_bpc += bpc_loss.mean()
     return total_bpc / num_batches
-
-
 
 def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, device_type, device, num_batches=10): 
     token_count_dict = defaultdict(int)

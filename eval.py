@@ -60,10 +60,15 @@ tokenizer = ETokenizer.load(checkpoint['tokenizer_path'])
 data_dir = os.path.join('data', 'enwiki')
 
 
-from magicab.magicab import evaluate_bpc
-bpc = evaluate_bpc(model, tokenizer, "data/enwiki", 256, 256, "cpu", device, num_batches=1)
+from magicab.magicab import evaluate_bpc, evaluate_token_stat
+
+bpc = evaluate_bpc(model, tokenizer, "data/enwiki", 256, 256, "cpu", device, num_batches=10)
 print(f"BPC of loaded checkpoint: {bpc}")
 
+# save token statistics, too, will come handy for experiments
+token_count_dict, token_bpc_dict = evaluate_token_stat(model, tokenizer, "data/enwiki", 256, 256, "cpu", device, num_batches=10)
+print(f"Token count dict: {token_count_dict}")
+print(f"Token BPC dict: {token_bpc_dict}")
 
 # Save info 
 info = {"run_idx": run_idx, "bpc": bpc, "model_type": model_type, "config": checkpoint['model_args']}
