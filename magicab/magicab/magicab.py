@@ -310,7 +310,7 @@ def get_batch(split, data_dir, block_size, batch_size, device_type, device):
 
 def compute_bpc(x, y, model, tokenizer): # corrected version
     per_token_nll = model(x, y, reduction='none')[1]  # shape: [batch_size, seq_len]
-    per_token_char_count = torch.tensor([[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in x])  # shape: [batch_size, seq_len]
+    per_token_char_count = torch.tensor([[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in y])  # shape: [batch_size, seq_len]
     
     # Sum total NLL and total character count
     total_nll = per_token_nll.sum()
@@ -321,18 +321,24 @@ def compute_bpc(x, y, model, tokenizer): # corrected version
     return bpc
 
 def update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict): 
-    per_token_nll = model(x, y, reduction='none')[1]
+    per_token_nll = model(x, y, reduction='none')[1]  # [batch_size, seq_len]
     per_token_char_count = torch.tensor([[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in x])
     per_token_bpc = per_token_nll.to("cpu").detach() / per_token_char_count / torch.log(torch.tensor(2.0))
-    # build a dictionary of per token bpc
-    for i, bpc in enumerate(per_token_bpc.flatten()): 
-        token = tokenizer.decode([i])
-        if token not in token_bpc_dict: 
+    
+    # Get the actual token IDs from x
+    token_ids = x.flatten().cpu().tolist()
+    per_token_bpc_flat = per_token_bpc.flatten()
+    
+    # Update statistics using actual token IDs
+    for token_id, bpc in zip(token_ids, per_token_bpc_flat):
+        token = tokenizer.decode([token_id])
+        if token not in token_bpc_dict:
             token_bpc_dict[token] = [bpc.item()]
             token_count_dict[token] = 1
-        else: 
+        else:
             token_bpc_dict[token].append(bpc.item())
             token_count_dict[token] += 1
+            
     return token_bpc_dict, token_count_dict
 
 def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device_type, device, num_batches=10):
