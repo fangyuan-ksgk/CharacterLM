@@ -7,8 +7,9 @@ from .utils import calculate_bits_per_char, shift_token_loss, short_one, inferen
 from .vis import visualize_text_multiline
 from .grouping import detect_spike_token_batch, detect_remove_token_batch, detect_group_token_batch
 from .utils import prep_char_perplexity_batch, get_char_perplexity_batch
-from .vocab_update import _cache_vocabulary_change, add_to_vocab, remove_from_vocab, _cache_input_vocabulary_change, add_to_input_vocab, truncate_model
+from .vocab_update import _cache_vocabulary_change, add_to_vocab, remove_from_vocab, _cache_input_vocabulary_change, add_to_input_vocab, truncate_model, add_token_wte, remove_token_wte, add_token_lm_head, remove_token_lm_head
 import gc
+from collections import defaultdict
 
 class Magicab:
     """Manages joint updates to both model vocabulary and tokenizer vocabulary"""
@@ -308,12 +309,39 @@ def get_batch(split, data_dir, block_size, batch_size, device_type, device):
         x, y = x.to(device), y.to(device)
     return x, y
 
-def compute_bpc(x, y, model, tokenizer): 
+# def compute_bpc(x, y, model, tokenizer): # old version, prune to errors
+#     per_token_nll = model(x, y, reduction='none')[1]
+#     per_token_char_count = [[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in x]
+#     per_token_char_count = torch.tensor(per_token_char_count)
+#     per_char_bits = per_token_nll.to("cpu").detach() / per_token_char_count / torch.log(torch.tensor(2.0))
+#     return per_char_bits
+
+def compute_bpc(x, y, model, tokenizer): # corrected version
+    per_token_nll = model(x, y, reduction='none')[1]  # shape: [batch_size, seq_len]
+    per_token_char_count = torch.tensor([[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in x])  # shape: [batch_size, seq_len]
+    
+    # Sum total NLL and total character count
+    total_nll = per_token_nll.sum()
+    total_chars = per_token_char_count.sum()
+    
+    # Calculate true BPC across all characters
+    bpc = (total_nll.to("cpu").detach() / total_chars) / torch.log(torch.tensor(2.0))
+    return bpc
+
+def update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict): 
     per_token_nll = model(x, y, reduction='none')[1]
-    per_token_char_count = [[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in x]
-    per_token_char_count = torch.tensor(per_token_char_count)
-    per_char_bits = per_token_nll.to("cpu").detach() / per_token_char_count / torch.log(torch.tensor(2.0))
-    return per_char_bits
+    per_token_char_count = torch.tensor([[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in x])
+    per_token_bpc = per_token_nll.to("cpu").detach() / per_token_char_count / torch.log(torch.tensor(2.0))
+    # build a dictionary of per token bpc
+    for i, bpc in enumerate(per_token_bpc.flatten()): 
+        token = tokenizer.decode([i])
+        if token not in token_bpc_dict: 
+            token_bpc_dict[token] = [bpc.item()]
+            token_count_dict[token] = 1
+        else: 
+            token_bpc_dict[token].append(bpc.item())
+            token_count_dict[token] += 1
+    return token_bpc_dict, token_count_dict
 
 def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device_type, device, num_batches=10):
     total_bpc = 0 
@@ -322,6 +350,22 @@ def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device_type
         bpc_loss = compute_bpc(x, y, model, tokenizer)
         total_bpc += bpc_loss.mean()
     return total_bpc / num_batches
+
+
+
+def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, device_type, device, num_batches=10): 
+    token_count_dict = defaultdict(int)
+    token_bpc_dict = defaultdict(list)
+    
+    for _ in tqdm(range(num_batches), desc="Evaluating Token Statistics"): 
+        x, y = get_batch('val', data_dir, block_size, batch_size, device_type, device)
+        token_bpc_dict, token_count_dict = update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict)
+        
+    token_bpc_dict = {token: sum(bpc_list) / len(bpc_list) for token, bpc_list in token_bpc_dict.items()}
+    
+    return token_count_dict, token_bpc_dict
+    
+    
 
 
 def save_magicab(checkpoint, magicab, 

@@ -46,16 +46,22 @@ def _plot_bpc_vs_vocab(vocab_sizes, bpcs, log_scale_vocab, increase_vocab_size, 
         plt.figure(figsize=(10, 6))
         # Use the sorted order for both scatter and regression
         ax = sns.scatterplot(data=df, x='Log Vocabulary Size', y='Bits per Character', alpha=0.6)
-        sns.regplot(data=df, x='Log Vocabulary Size', y='Bits per Character', 
+        reg_plot = sns.regplot(data=df, x='Log Vocabulary Size', y='Bits per Character', 
                     scatter=False, color='red')
+        # Get the slope from the regression line
+        slope = reg_plot.get_lines()[0].get_data()[1][-1] - reg_plot.get_lines()[0].get_data()[1][0]
+        slope /= (reg_plot.get_lines()[0].get_data()[0][-1] - reg_plot.get_lines()[0].get_data()[0][0])
         plt.xscale('log')
         if not increase_vocab_size:
             plt.gca().invert_xaxis()
     else:
         plt.figure(figsize=(10, 6))
         ax = sns.scatterplot(data=df, x='Vocabulary Size', y='Bits per Character', alpha=0.6)
-        sns.regplot(data=df, x='Vocabulary Size', y='Bits per Character', 
+        reg_plot = sns.regplot(data=df, x='Vocabulary Size', y='Bits per Character', 
                     scatter=False, color='red')
+        # Get the slope from the regression line
+        slope = reg_plot.get_lines()[0].get_data()[1][-1] - reg_plot.get_lines()[0].get_data()[1][0]
+        slope /= (reg_plot.get_lines()[0].get_data()[0][-1] - reg_plot.get_lines()[0].get_data()[0][0])
         if not increase_vocab_size:
             plt.gca().invert_xaxis()
 
@@ -112,3 +118,67 @@ def _plot_bpc_vs_vocab(vocab_sizes, bpcs, log_scale_vocab, increase_vocab_size, 
                     arrowprops=dict(arrowstyle='<-'))
 
     plt.tight_layout()
+    return slope
+
+
+
+def _plot_bpc_vs_vocab_comparison(info, log_scale_vocab, increase_vocab_size, title):
+    try: 
+        df1 = pd.DataFrame({
+            'Vocabulary Size': info["incre_vocab_curriculum"]["vocab_sizes"],
+            'Bits per Character': info["incre_vocab_curriculum"]["bpcs"]
+        })  
+    except: 
+        df1 = pd.DataFrame({
+            'Vocabulary Size': info["decre_vocab_curriculum"]["vocab_sizes"],
+            'Bits per Character': info["decre_vocab_curriculum"]["bpcs"]
+        })  
+    
+    df2 = pd.DataFrame({
+        'Vocabulary Size': info["compute_matching"]["vocab_sizes"],
+        'Bits per Character': info["compute_matching"]["bpcs"]
+    })
+
+    # Sort values based on increase_vocab_size parameter
+    df1 = df1.sort_values('Vocabulary Size', ascending=True)
+    df2 = df2.sort_values('Vocabulary Size', ascending=True)
+
+    # Transform x values to log scale for both dataframes
+    df1['Log Vocabulary Size'] = np.log10(df1['Vocabulary Size'])
+    df2['Log Vocabulary Size'] = np.log10(df2['Vocabulary Size'])
+    
+    plt.figure(figsize=(10, 6))
+    
+    # Calculate slopes
+    slope1 = (df1['Bits per Character'].iloc[-1] - df1['Bits per Character'].iloc[0])
+    slope1 /= (df1['Log Vocabulary Size'].iloc[-1] - df1['Log Vocabulary Size'].iloc[0])
+    
+    slope2 = (df2['Bits per Character'].iloc[-1] - df2['Bits per Character'].iloc[0])
+    slope2 /= (df2['Log Vocabulary Size'].iloc[-1] - df2['Log Vocabulary Size'].iloc[0])
+    
+    # Plot both datasets with regression lines
+    sns.regplot(data=df1, x='Log Vocabulary Size', y='Bits per Character', 
+                scatter=True, label=f'Incremental Vocab Curriculum Learning: {slope1:.3f}',
+                color='red', ci=68)  # Reduced CI from 95 to 68
+    
+    sns.regplot(data=df2, x='Log Vocabulary Size', y='Bits per Character',
+                scatter=True, label=f'Compute-matching Learning: {slope2:.3f}',
+                color='blue', ci=68)
+    
+    # Customize the plot
+    plt.title(title, pad=15)
+    plt.xlabel('Vocabulary Size (log scale)')
+    plt.ylabel('Bits per Character (BPC)')
+    
+    # Fix x-axis ticks
+    log_ticks = np.arange(2, 5)  # Adjust range as needed
+    plt.xticks(log_ticks, [f'$10^{i}$' for i in log_ticks])
+    
+    if not increase_vocab_size:
+        plt.gca().invert_xaxis()
+    
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    return slope1, slope2  # Return both slopes
