@@ -1,7 +1,7 @@
 run_dir="checkpoint/run5"
 mkdir -p $run_dir
 python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base"
-python train.py config/train_enwiki_char.py --out_dir="$run_dir/base"
+# python train.py config/train_enwiki_char.py --out_dir="$run_dir/base"
 python eval.py --model_type="GPT" --out_dir="$run_dir/base" --run_idx=0
 
 num_iterations=5  # Adjust this number as needed
