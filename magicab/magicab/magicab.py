@@ -331,7 +331,7 @@ def update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict):
     
     # Update statistics using actual token IDs
     for token_id, bpc in zip(token_ids, per_token_bpc_flat):
-        token = tokenizer.decode([token_id])
+        token = tokenizer.vocab[token_id]
         if token not in token_bpc_dict:
             token_bpc_dict[token] = [bpc.item()]
             token_count_dict[token] = 1
