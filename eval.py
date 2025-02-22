@@ -71,6 +71,6 @@ print(f"Token count dict: {token_count_dict}")
 print(f"Token BPC dict: {token_bpc_dict}")
 
 # Save info 
-info = {"run_idx": run_idx, "bpc": bpc, "model_type": model_type, "config": checkpoint['model_args']}
+info = {"run_idx": run_idx, "bpc": bpc, "model_type": model_type, "config": checkpoint['model_args'], "token_count_dict": token_count_dict, "token_bpc_dict": token_bpc_dict}
 with open(os.path.join(out_dir, f"info_{run_idx}.pkl"), "wb") as f:
     pickle.dump(info, f)
