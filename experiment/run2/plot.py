@@ -159,11 +159,11 @@ def _plot_bpc_vs_vocab_comparison(info, log_scale_vocab, increase_vocab_size, ti
     # Plot both datasets with regression lines
     sns.regplot(data=df1, x='Log Vocabulary Size', y='Bits per Character', 
                 scatter=True, label=f'Incremental Vocab Curriculum Learning: {slope1:.3f}',
-                color='red', ci=68)  # Reduced CI from 95 to 68
+                color='red', ci=45)  # Reduced CI from 95 to 68
     
     sns.regplot(data=df2, x='Log Vocabulary Size', y='Bits per Character',
                 scatter=True, label=f'Compute-matching Learning: {slope2:.3f}',
-                color='blue', ci=68)
+                color='blue', ci=45)
     
     # Customize the plot
     plt.title(title, pad=15)
@@ -182,3 +182,107 @@ def _plot_bpc_vs_vocab_comparison(info, log_scale_vocab, increase_vocab_size, ti
     plt.tight_layout()
     
     return slope1, slope2  # Return both slopes
+
+
+
+def plot_token_length_distribution(token_counts):
+    
+    # Calculate the percentage of each token length in the distribution
+    token_length_percentages = {}
+    total_tokens = sum(token_counts.values())
+    for length, count in token_counts.items():
+        token_length_percentages[length] = (count / total_tokens) * 100
+    
+    total_tokens = sum(token_counts.values())
+    token_length_percentages = {k: (v/total_tokens)*100 for k, v in token_counts.items()}
+
+    plt.figure(figsize=(10, 6))
+    plt.bar(token_length_percentages.keys(), token_length_percentages.values())
+    plt.title('Distribution of Token Lengths')
+    plt.xlabel('Token Length')
+    plt.ylabel('Percentage of Total Tokens (%)')
+    plt.grid(True, alpha=0.3)
+    plt.show()
+    
+    
+def compute_avg_token_bpc_by_length(token_bpcs):
+
+    # Analyze token perplexity by length
+    token_perplexity_by_length = {}
+    for token, bpc in token_bpcs.items():
+        length = len(token)
+        if length not in token_perplexity_by_length:
+            token_perplexity_by_length[length] = []
+        token_perplexity_by_length[length].append(bpc)
+
+    # Calculate average perplexity for each length
+    avg_perplexity_by_length = {
+        length: sum(perplexities)/len(perplexities) 
+        for length, perplexities in token_perplexity_by_length.items()
+    }
+    
+    return avg_perplexity_by_length
+        
+        
+def compute_avg_token_bpc_by_iter(token_bpcs, token_iter):
+
+    # Initialize dictionary to store BPCs for each iteration
+    bpc_by_iter = {}
+    
+    # Group BPCs by iteration number
+    for token, bpc in token_bpcs.items():
+        iter_num = token_iter.get(token, 0)  # Default to 0 if token not found
+        if iter_num not in bpc_by_iter:
+            bpc_by_iter[iter_num] = []
+        bpc_by_iter[iter_num].append(bpc)
+    
+    # Calculate average BPC for each iteration
+    avg_bpc_by_iter = {
+        iter_num: sum(bpcs)/len(bpcs)
+        for iter_num, bpcs in bpc_by_iter.items()
+    }
+    
+    return avg_bpc_by_iter
+
+        
+def plot_token_perplexity_by_length(token_bpcs, avg_perplexity_by_length):
+    
+    sns.set_palette("husl")
+
+    # Create figure
+    plt.figure(figsize=(12, 6))
+
+    # Create scatter plot with individual points using seaborn
+    sns.scatterplot(x=[len(token) for token in token_bpcs.keys()], 
+                    y=list(token_bpcs.values()),
+                    alpha=0.2, color='gray', s=80)
+
+    # Plot average line with markers
+    x = list(avg_perplexity_by_length.keys())
+    y = list(avg_perplexity_by_length.values())
+    points = sorted(zip(x, y))
+    x_sorted, y_sorted = zip(*points)
+
+    # Add the average line with seaborn styling
+    sns.lineplot(x=x_sorted, y=y_sorted, color='red', linewidth=2, 
+                label='Average BPC', zorder=5)
+    sns.scatterplot(x=x_sorted, y=y_sorted, color='red', s=100, zorder=6)
+
+    # Customize the plot
+    plt.title('Token Perplexity by Length', fontsize=14, pad=15)
+    plt.xlabel('Token Length', fontsize=12)
+    plt.ylabel('BPC', fontsize=12)
+
+    # Customize grid and spines
+    sns.despine(left=False, bottom=False)
+    plt.grid(True, alpha=0.3, linestyle='--')
+
+    # Adjust legend
+    plt.legend(frameon=True, framealpha=1, 
+            edgecolor='lightgray', 
+            bbox_to_anchor=(1.02, 1),
+            fontsize=12)
+
+    # Tight layout to prevent label cutoff
+    plt.tight_layout()
+    plt.show()

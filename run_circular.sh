@@ -1,4 +1,4 @@
-run_dir="checkpoint/run5"
+run_dir="checkpoint/run5_cm"
 mkdir -p $run_dir
 python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base"
 # python train.py config/train_enwiki_char.py --out_dir="$run_dir/base"

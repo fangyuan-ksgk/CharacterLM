@@ -117,10 +117,13 @@ class Magicab:
                                                                                                           char_token_mask=char_token_mask)
         char_perplexity, char_colors, char_groups = prep_char_perplexity_batch(texts, token_ids, token_perplexity, group_token_mask, token_groups, char_token_mask, decode, mask_color=group_color)
 
+
         file_name = "group"
         for text, char_color, group in zip(texts, char_colors, char_groups): 
             text_str = text.replace(" ", "")[:15]
             visualize_text_multiline(text, char_color, group, max_chars_per_row=60, title='Group Token', output_path=os.path.join(self.log_dir, f"{file_name}_group_{text_str}.png"))
+        
+        return char_perplexity
             
     def _detect_spike_tokens(self, token_ids, token_perplexity, char_token_mask):
         """Identifies tokens with unusually high perplexity"""
