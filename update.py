@@ -10,6 +10,8 @@ from data.enwiki.util import prepare_enwiki_data
 # -----------------------------------------------------------------------------
 out_dir = 'checkpoint/base' # ignored if init_from is not 'resume'
 new_dir = "checkpoint/new"
+dataset = "enwiki"
+data_subfolder = ""
 device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
 compile = False # use PyTorch 2.0 to compile the model to be faster
@@ -55,7 +57,10 @@ magicab = Magicab(tokenizer=tokenizer, model=model, checkpoint_dir=out_dir,
                   group_perplexity_threshold=thres)
 
 # Update Magicab Vocabulary & Training Data 
-data_dir = os.path.join('data', 'enwiki')
+if data_subfolder == "": 
+    data_dir = os.path.join('data', dataset)
+else: 
+    data_dir = os.path.join('data', dataset, data_subfolder)
 
 # Update Magicab Vocabulary 
 if truncate_vocab: 
@@ -70,10 +75,10 @@ else:
                 device_type=device,
                 max_size_change=max_size_change)
 
-print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size) # Issue : not actually updated ... 
+print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size)
 
 # Update Training Data 
-prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir) # relabel training data with updated vocabulary
+prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir)
 
 # Save model checkpoint & tokenizer | checkpoint is updated inside save_magicab
 save_magicab(checkpoint, magicab, new_dir)
