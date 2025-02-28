@@ -47,30 +47,40 @@ def clean_wiki_text(content):
 
 
 
-def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/base", tokenizer_path=""):
+def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/base", tokenizer_path="", data_subfolder=""):
     """
     Prepare the enwiki dataset for language modeling.
     Args:
         clean (bool): Whether to use cleaned version of the dataset
         tokenizer: Custom tokenizer object. If None, uses character-level tokenization
+        checkpoint_dir (str): Directory to save tokenizer and model checkpoints
+        tokenizer_path (str): Path to load a pre-existing tokenizer
+        data_subfolder (str): Sub-folder within enwiki directory to store processed data
     Returns:
         dict: Meta information including vocabulary size and encoders/decoders
     """
-    data_dir = os.path.join('data', 'enwiki')
-    input_file_path = os.path.join(data_dir, 'enwik8')
+    # Build the data directory path, incorporating dataset_folder if provided
+    if data_subfolder == "":
+        data_dir = os.path.join('data', 'enwiki')
+    else:
+        data_dir = os.path.join('data', 'enwiki', data_subfolder)
+    os.makedirs(data_dir, exist_ok=True)
+    
+    # Original data is always in the base enwiki folder
+    base_data_dir = os.path.join('data', 'enwiki')
+    input_file_path = os.path.join(base_data_dir, 'enwik8')
     if not os.path.exists(input_file_path):
         os.system("bash data/enwiki/download_data.sh")
 
     if clean:
-        clean_file_path = os.path.join(data_dir, 'enwik8_clean.txt')
+        clean_file_path = os.path.join(base_data_dir, 'enwik8_clean.txt')
         if not os.path.exists(clean_file_path):
             os.system("python data/enwiki/filter_data.py")
     else: 
         clean_file_path = input_file_path
         
     print("Input file path: ", clean_file_path)
-    os.makedirs(data_dir, exist_ok=True)
-        
+    
     with open(clean_file_path, 'r', encoding='utf-8') as f:
         data = f.read()   
 
@@ -112,15 +122,15 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
     print(f"val has {len(val_ids):,} tokens")
     print(f"test has {len(test_ids):,} tokens")
 
-    # export to bin files
+    # export to bin files - now always using data_dir which includes dataset_folder if specified
     train_ids = np.array(train_ids, dtype=np.uint16)
     val_ids = np.array(val_ids, dtype=np.uint16)
     test_ids = np.array(test_ids, dtype=np.uint16)
+
     train_ids.tofile(os.path.join(data_dir, 'train.bin'))
     val_ids.tofile(os.path.join(data_dir, 'val.bin'))
     test_ids.tofile(os.path.join(data_dir, 'test.bin'))
 
-    
     # save meta information
     meta = {
         "vocab_size": vocab_size, 
@@ -134,7 +144,8 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
     print(f"Saving tokenizer with vocab_size: {tokenizer.vocab_size} into {os.path.join(checkpoint_dir, 'tokenizer.json')}")
     tokenizer.save(os.path.join(checkpoint_dir, 'tokenizer.json'))
         
+    # Save meta.pkl to data_dir which already includes dataset_folder if specified
     with open(os.path.join(data_dir, 'meta.pkl'), 'wb') as f:
         pickle.dump(meta, f)
-        
+            
     return meta

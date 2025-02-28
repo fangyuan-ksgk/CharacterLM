@@ -48,6 +48,7 @@ wandb_project = 'owt'
 wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
 dataset = 'openwebtext'
+data_subfolder="enwiki"
 gradient_accumulation_steps = 5 * 8 # used to simulate larger batch sizes
 batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 1024
@@ -310,7 +311,10 @@ def train():
     device = env['device']
     
     # Initialize data directory
-    data_dir = os.path.join('data', dataset)
+    if data_subfolder == "":
+        data_dir = os.path.join('data', dataset)
+    else:
+        data_dir = os.path.join('data', dataset, data_subfolder)
     
     # Get vocabulary size from meta.pkl if available
     meta_path = os.path.join(data_dir, 'meta.pkl')

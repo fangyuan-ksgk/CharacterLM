@@ -13,6 +13,8 @@ from data.enwiki.util import prepare_enwiki_data
 out_dir = 'checkpoint/base' # ignored if init_from is not 'resume'
 new_dir = "checkpoint/new"
 model_type = "GPT"
+data_dir = "enwiki"
+data_subfolder = "gpt_small"
 device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
 compile = False # use PyTorch 2.0 to compile the model to be faster
@@ -57,16 +59,18 @@ tokenizer = ETokenizer.load(checkpoint['tokenizer_path'])
 
 
 # Update Magicab Vocabulary & Training Data 
-data_dir = os.path.join('data', 'enwiki')
-
+if data_subfolder == "": 
+    data_dir = os.path.join('data', 'enwiki')
+else: 
+    data_dir = os.path.join('data', data_dir, data_subfolder)
 
 from magicab.magicab import evaluate_bpc, evaluate_token_stat
 
-bpc = evaluate_bpc(model, tokenizer, "data/enwiki", 256, 256, "cpu", device, num_batches=10)
+bpc = evaluate_bpc(model, tokenizer, data_dir, 256, 256, "cpu", device, num_batches=10)
 print(f"BPC of loaded checkpoint: {bpc}")
 
 # save token statistics, too, will come handy for experiments
-token_count_dict, token_bpc_dict = evaluate_token_stat(model, tokenizer, "data/enwiki", 256, 256, "cpu", device, num_batches=10)
+token_count_dict, token_bpc_dict = evaluate_token_stat(model, tokenizer, data_dir, 256, 256, "cpu", device, num_batches=10)
 print(f"Token count dict: {token_count_dict}")
 print(f"Token BPC dict: {token_bpc_dict}")
 

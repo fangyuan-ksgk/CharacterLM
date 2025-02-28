@@ -11,7 +11,8 @@ if __name__ == '__main__':
     parser.add_argument('--clean', action='store_true', help='Use cleaned version of the dataset')
     parser.add_argument("--out_dir", type=str, default="checkpoint/base")
     parser.add_argument("--tokenizer_path", type=str, default="")
+    parser.add_argument("--data_subfolder", type=str, default="")
 
     args = parser.parse_args()
     
-    prepare_enwiki_data(clean=args.clean, checkpoint_dir=args.out_dir, tokenizer_path=args.tokenizer_path)
+    prepare_enwiki_data(clean=args.clean, checkpoint_dir=args.out_dir, tokenizer_path=args.tokenizer_path, data_subfolder=args.data_subfolder)
