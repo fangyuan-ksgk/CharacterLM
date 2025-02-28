@@ -264,13 +264,15 @@ def estimate_loss(model, ctx, data_dir):
 def save_checkpoint(model, optimizer, model_args, iter_num, best_val_loss, is_ddp=False):
     """Save model checkpoint."""
     raw_model = model.module if is_ddp else model
+    tokenizer_path = os.path.join(out_dir, 'tokenizer.json')
     checkpoint = {
         'model': raw_model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'model_args': model_args,
         'iter_num': iter_num,
         'best_val_loss': best_val_loss,
-        'config': {k: globals()[k] for k in config_keys}
+        'config': {k: globals()[k] for k in config_keys},
+        "tokenizer_path": tokenizer_path
     }
     print(f"saving checkpoint to {out_dir}")
     torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
