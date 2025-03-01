@@ -4,6 +4,7 @@ from tqdm import tqdm  # Add this import at the top of the file
 from rust_tokenizer import PyETokenizer
 from copy import deepcopy
 import time
+import random
 
 def encode_char(text, special_tokens, special2idx, char2idx): 
     pattern = f"({'|'.join(re.escape(token) for token in special_tokens)})"
@@ -166,8 +167,15 @@ class ETokenizer:
     """
     def __init__(self, char_vocab=False):
 
-        self.special_tokens = ["<|endoftext|>", "<pad>"]
+        self.eos_token = "<|endoftext|>"
+        self.pad_token = "<pad>"
+        self.user_token = "<USER> "
+        self.assistant_token = "<ASSISTANT> "
+        self.special_tokens = [self.eos_token, self.pad_token, self.user_token, self.assistant_token]
         self._init_token_trie(char_vocab, self.special_tokens)
+        
+        self.template = {"user": self.user_token + " {user} " + self.eos_token, 
+                        "assistant": self.assistant_token + " {assistant} " + self.eos_token}
         
         self.use_char = bool(char_vocab)
         self.char_vocab = char_vocab
@@ -538,6 +546,128 @@ class ETokenizer:
         chunks = chunk_text(text, chunk_size)
         return _encode_chunks(chunks, self, chunk_size)
     
+    
+    def apply_chat_template(self, conversation,
+                            add_generation_prompt=True, block_size=512): 
+        
+        formatted_text = ""
+        for i, conv in enumerate(conversation): 
+            role = "user" if "user" in conv else "assistant"
+            turn_text = self.template[role].format(**conv)
+                    
+            if role == "assistant":
+                tokens = self.encode(turn_text)
+                formatted_text += turn_text
+            else:
+                tokens = self.encode(turn_text)
+                formatted_text += turn_text
+                
+        if add_generation_prompt:
+            formatted_text += self.assistant_token
+            
+        return formatted_text[-block_size:] # backward slice
+    
+    
+    def prepare_sft_data(self, conversation, add_generation_prompt=True, 
+                            return_dict=False, block_size=512):
+
+        formatted_text = ""
+        loss_mask = []
+        
+        # Process conversation turns
+        n_turns = len(conversation)
+        
+        conv_texts = []
+        conv_tokens = [] 
+        conv_loss_masks = []
+        user_indices = [] 
+        assistant_indices = [] 
+        
+        for i, conv in enumerate(conversation): 
+            role = "user" if "user" in conv else "assistant"
+            turn_text = self.template[role].format(**conv)
+                    
+            if role == "assistant":
+                conv_texts.append(turn_text)
+                tokens = self.encode(turn_text)
+                conv_loss_masks.append([1] * len(tokens))
+                conv_tokens.append(tokens)
+                assistant_indices.append(i)
+            else:
+                conv_texts.append(turn_text)
+                tokens = self.encode(turn_text)
+                conv_loss_masks.append([0] * len(tokens))
+                conv_tokens.append(tokens)
+                user_indices.append(i)
+                
+        formatted_text, loss_mask = self.random_slice_conversation(user_indices, assistant_indices, conv_texts, conv_tokens, conv_loss_masks, block_size)
+        
+        if return_dict:
+            return {
+                "text": formatted_text,
+                "loss_mask": loss_mask
+            }
+        return formatted_text.strip()
+     
+
+    def random_slice_conversation(self, user_indices, assistant_indices, conv_texts, conv_tokens, conv_loss_masks, block_size):
+        """
+        Extract a coherent conversation slice within token limit constraints.
+        
+        Returns:
+            tuple: (formatted_text, loss_mask)
+        """
+        # Find valid starting points (user messages with at least one following assistant message)
+        valid_start_indices = [idx for idx in user_indices if any(a_idx > idx for a_idx in assistant_indices)]
+        
+        if not valid_start_indices:
+            raise ValueError("No valid conversation slice possible")
+        
+        # Select random starting point
+        start_idx = random.choice(valid_start_indices)
+        
+        # Build the maximum consecutive sequence that fits in the block_size
+        sequence = []
+        total_tokens = 0
+        
+        for i in range(start_idx, len(conv_tokens)):
+            # Stop if adding this segment would exceed token limit
+            if total_tokens + len(conv_tokens[i]) > block_size:
+                break
+                
+            # Stop if we encounter a non-consecutive turn
+            if sequence and i != sequence[-1] + 1:
+                break
+                
+            sequence.append(i)
+            total_tokens += len(conv_tokens[i])
+        
+        # Ensure we end with an assistant message
+        while sequence and sequence[-1] not in assistant_indices:
+            sequence.pop()
+        
+        if not sequence:
+            raise ValueError("No valid conversation slice possible")
+        
+        # Construct the formatted text and loss mask
+        formatted_text = ""
+        loss_mask = []
+        
+        for i, idx in enumerate(sequence):
+            # Handle the final segment (strip trailing whitespace)
+            if i == len(sequence) - 1:
+                text = conv_texts[idx].rstrip() + "<|endoftext|>"
+                tokens = self.encode(text)
+                mask = [1 if idx in assistant_indices else 0] * len(tokens)
+            else:
+                text = conv_texts[idx]
+                tokens = conv_tokens[idx]
+                mask = conv_loss_masks[idx]
+                
+            formatted_text += text
+            loss_mask.extend(mask)
+        
+        return formatted_text, loss_mask
     
 def _encode_chunks(chunks, tok, chunk_size=256*8): 
     max_merge_len = max([len(v) for v in tok.vocab.values()])
