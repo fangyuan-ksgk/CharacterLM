@@ -34,13 +34,14 @@ from spline_model import SplineGPTConfig, SplineGPT
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
-out_dir = 'out'
+load_dir = 'checkpoint/base'
+out_dir = 'checkpoint/sft'
 eval_interval = 2000
 log_interval = 1
 eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = True # if True, always save a checkpoint after each eval
-init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
+init_from = 'resume' # 'scratch' or 'resume' or 'gpt2*'
 model_type = "GPT"
 # wandb logging
 wandb_log = False # disabled by default
@@ -51,13 +52,8 @@ dataset = 'openwebtext'
 data_subfolder="enwiki"
 gradient_accumulation_steps = 5 * 8 # used to simulate larger batch sizes
 batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 1024
-# model
-n_layer = 12
-n_head = 12
-n_embd = 768
-dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
-bias = False # do we use bias inside LayerNorm and Linear layers?
+block_size = 512
+
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
 max_iters = 600000 # total number of training iterations
@@ -145,35 +141,12 @@ def get_lr(iter_num):
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def init_model(vocab_size=None):
+def init_model():
+    
     """Initialize model based on configuration."""
-    if init_from == 'scratch':
-        print("Initializing a new model from scratch")
-        # Set default vocab size if not specified
-        if vocab_size is None:
-            vocab_size = 50304  # GPT-2 default vocab size
-        
-        # Initialize appropriate model based on type
-        model_args = dict(
-            n_layer=n_layer, 
-            n_head=n_head, 
-            n_embd=n_embd,
-            block_size=block_size,
-            bias=bias, 
-            vocab_size=vocab_size,
-            dropout=dropout
-        )
-        
-        if model_type == "GPT":
-            config = GPTConfig(**model_args)
-            model = GPT(config)
-        elif model_type == "SplineGPT":
-            config = SplineGPTConfig(**model_args)
-            model = SplineGPT(config)
-            
-    elif init_from == 'resume':
-        print(f"Resuming training from {out_dir}")
-        ckpt_path = os.path.join(out_dir, 'ckpt.pt')
+    if init_from == 'resume':
+        print(f"Resuming training from {load_dir}")
+        ckpt_path = os.path.join(load_dir, 'ckpt.pt')
         checkpoint = torch.load(ckpt_path, map_location=device)
         
         # Extract model configuration from checkpoint
@@ -204,10 +177,6 @@ def init_model(vocab_size=None):
                 state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         model.load_state_dict(state_dict)
         
-        # Load training state
-        iter_num = checkpoint['iter_num']
-        best_val_loss = checkpoint['best_val_loss']
-        
     elif init_from.startswith('gpt2'):
         assert model_type == "GPT", "Only GPT is supported for loading from GPT-2 weights"
         print(f"Initializing from OpenAI GPT-2 weights: {init_from}")
@@ -226,14 +195,14 @@ def init_model(vocab_size=None):
 
 
 @torch.no_grad()
-def estimate_loss(model, ctx, data_dir):
+def estimate_loss(model, ctx):
     """Evaluate model on training and validation sets."""
     out = {}
     model.eval()
     for split in ['train', 'val']:
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
-            X, Y, loss_mask = get_batch(data_dir, split)
+            X, Y, loss_mask = get_batch(batch_size, split, device)
             with ctx:
                 logits, loss = model(X, Y, reduction='none')
             losses[k] = (loss * loss_mask).mean().item()
@@ -294,23 +263,8 @@ def train():
     env = setup_training_environment()
     device = env['device']
     
-    # Initialize data directory
-    if data_subfolder == "":
-        data_dir = os.path.join('data', dataset)
-    else:
-        data_dir = os.path.join('data', dataset, data_subfolder)
-    
-    # Get vocabulary size from meta.pkl if available
-    meta_path = os.path.join(data_dir, 'meta.pkl')
-    meta_vocab_size = None
-    if os.path.exists(meta_path):
-        with open(meta_path, 'rb') as f:
-            meta = pickle.load(f)
-        meta_vocab_size = meta['vocab_size']
-        print(f"found vocab_size = {meta_vocab_size} (from {meta_path})")
-    
     # Initialize model and optimizer
-    model, model_args = init_model(meta_vocab_size)
+    model, model_args = init_model()
     model.to(device)
     
     # Compile model if requested
@@ -341,7 +295,7 @@ def train():
     pbar = tqdm(total=max_iters, initial=iter_num, dynamic_ncols=True)
     
     # Main training loop
-    X, Y, loss_mask = get_batch(data_dir, 'train')  # Get first batch
+    X, Y, loss_mask = get_batch(batch_size, 'train', device)  # Get first batch
     t0 = time.time()
     local_iter_num = 0
     running_mfu = -1.0
@@ -354,7 +308,8 @@ def train():
         
         # Evaluation and checkpointing
         if iter_num % eval_interval == 0 and env['master_process']:
-            losses = estimate_loss(model, env['ctx'], data_dir)
+            losses = estimate_loss(model, env['ctx'])
+            
             print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
             
             # Log to wandb if enabled
@@ -381,7 +336,7 @@ def train():
         )
         
         # Get next batch
-        X, Y, loss_mask = get_batch(data_dir, 'train')
+        X, Y, loss_mask = get_batch(batch_size, 'train', device)
         
         # Timing and logging
         t1 = time.time()

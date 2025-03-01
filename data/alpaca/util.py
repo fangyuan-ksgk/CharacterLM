@@ -116,8 +116,24 @@ def prepare_alpaca_data(tokenizer, block_size=512):
     
     print(f"- Total Training samples: {len(train_tokens)}")
     print(f"- Total Validation samples: {len(val_tokens)}")
+
     
+def truncate_batch(input_ids, target_ids, loss_mask):
     
+    # Find the last non-zero index for each sequence
+    non_zero_indices = (input_ids != 0).cumsum(dim=1).argmax(dim=1)
+    
+    # Get the maximum index (plus 1 for safety margin)
+    max_len = max(non_zero_indices.max().item() + 1, 1)
+    
+    # Truncate all tensors to max_len
+    trunc_input_ids = input_ids[:, :max_len]
+    
+    trunc_target_ids = target_ids[:, :max_len]
+    trunc_loss_mask = loss_mask[:, :max_len]
+    return trunc_input_ids, trunc_target_ids, trunc_loss_mask
+
+
 def get_batch(batch_size, split='train', device='mps'):
      
     if split == 'train': 
@@ -132,6 +148,8 @@ def get_batch(batch_size, split='train', device='mps'):
     input_ids = torch.stack([torch.from_numpy((tokens[i][:-1]).astype(np.int64)) for i in ix])
     target_ids = torch.stack([torch.from_numpy((tokens[i][1:]).astype(np.int64)) for i in ix])
     loss_mask = torch.stack([torch.from_numpy((masks[i][1:]).astype(np.int64)) for i in ix])
+    
+    input_ids, target_ids, loss_mask = truncate_batch(input_ids, target_ids, loss_mask)
     
     if 'cuda' in device:
         # pin arrays x,y, which allows us to move them to GPU asynchronously
