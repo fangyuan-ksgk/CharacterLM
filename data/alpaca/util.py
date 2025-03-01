@@ -101,8 +101,8 @@ def prepare_alpaca_data(tokenizer, block_size=512):
     train_data, val_data = train_test_split(processed_data, test_size=0.1, random_state=42)
 
     # Create memory-mapped arrays
-    train_tokens, train_masks, train_metadata = prepare_for_memmap(train_data)
-    val_tokens, val_masks, val_metadata = prepare_for_memmap(val_data)
+    train_tokens, train_masks, train_metadata = prepare_for_memmap(train_data, tokenizer)
+    val_tokens, val_masks, val_metadata = prepare_for_memmap(val_data, tokenizer)
 
     # Save only numpy arrays and minimal metadata
     np.save("data/alpaca/train_tokens.npy", train_tokens)
@@ -113,6 +113,9 @@ def prepare_alpaca_data(tokenizer, block_size=512):
     # Save minimal metadata
     np.savez("data/alpaca/train_metadata.npz", **train_metadata)
     np.savez("data/alpaca/val_metadata.npz", **val_metadata)
+    
+    print(f"- Total Training samples: {len(train_tokens)}")
+    print(f"- Total Validation samples: {len(val_tokens)}")
     
     
 def get_batch(batch_size, split='train', device='mps'):
@@ -126,13 +129,14 @@ def get_batch(batch_size, split='train', device='mps'):
         
     ix = torch.randint(tokens.shape[0], (batch_size,))
     
-    x = torch.stack([torch.from_numpy((tokens[i]).astype(np.int64)) for i in ix])
-    y = torch.stack([torch.from_numpy((masks[i]).astype(np.int64)) for i in ix])
+    input_ids = torch.stack([torch.from_numpy((tokens[i][:-1]).astype(np.int64)) for i in ix])
+    target_ids = torch.stack([torch.from_numpy((tokens[i][1:]).astype(np.int64)) for i in ix])
+    loss_mask = torch.stack([torch.from_numpy((masks[i][1:]).astype(np.int64)) for i in ix])
     
     if 'cuda' in device:
         # pin arrays x,y, which allows us to move them to GPU asynchronously
-        x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
+        input_ids, target_ids, loss_mask = input_ids.pin_memory().to(device, non_blocking=True), target_ids.pin_memory().to(device, non_blocking=True), loss_mask.pin_memory().to(device, non_blocking=True)
     else:
-        x, y = x.to(device), y.to(device)
+        input_ids, target_ids, loss_mask = input_ids.to(device), target_ids.to(device), loss_mask.to(device)
     
-    return x, y
+    return input_ids, target_ids, loss_mask
