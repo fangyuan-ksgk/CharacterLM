@@ -10,5 +10,4 @@ python eval.py --model_type="GPT" --out_dir="$run_dir/min_vocab" --run_idx=0
 
 
 
-
-python train.py config/train_enwiki_char.py --out_dir="$run_dir/max_vocab" --max_iters=30000
+python train_sft.py config/train_sft_gpt.py --load_dir="checkpoint/base" --out_dir="checkpoint/sft_gpt" --max_iters=5000 --device="mps"

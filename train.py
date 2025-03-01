@@ -34,6 +34,7 @@ from spline_model import SplineGPTConfig, SplineGPT
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
+load_dir = 'out'
 out_dir = 'out'
 eval_interval = 2000
 log_interval = 1
@@ -190,6 +191,30 @@ def init_model(vocab_size=None):
             config = SplineGPTConfig(**model_args)
             model = SplineGPT(config)
             
+    elif init_from == 'retrain': 
+        ckpt_path = os.path.join(load_dir, 'ckpt.pt')
+        checkpoint = torch.load(ckpt_path, map_location=device)
+        
+        # Extract model configuration from checkpoint
+        checkpoint_model_args = checkpoint['model_args']
+        model_args = {}
+        
+        # Common parameters for all model types
+        for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
+            model_args[k] = checkpoint_model_args[k]
+            
+        # Create appropriate model type
+        if model_type == "GPT":
+            config = GPTConfig(**model_args)
+            model = GPT(config)
+        elif model_type == "SplineGPT":
+            # Add SplineGPT specific parameters
+            if 'spline_control_layers' in checkpoint_model_args:
+                model_args['spline_control_layers'] = checkpoint_model_args['spline_control_layers']
+            config = SplineGPTConfig(**model_args)
+            model = SplineGPT(config)
+            
+            
     elif init_from == 'resume':
         print(f"Resuming training from {out_dir}")
         ckpt_path = os.path.join(out_dir, 'ckpt.pt')
@@ -222,10 +247,6 @@ def init_model(vocab_size=None):
             if k.startswith(unwanted_prefix):
                 state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         model.load_state_dict(state_dict)
-        
-        # Load training state
-        iter_num = checkpoint['iter_num']
-        best_val_loss = checkpoint['best_val_loss']
         
     elif init_from.startswith('gpt2'):
         assert model_type == "GPT", "Only GPT is supported for loading from GPT-2 weights"
