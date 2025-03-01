@@ -14,6 +14,7 @@ wandb_project = 'enwiki-char'
 wandb_run_name = 'char-gpt'
 
 dataset = 'enwiki'
+data_subfolder="gpt_small"
 gradient_accumulation_steps = 1
 batch_size = 64
 block_size = 512 # context of up to 512 previous characters
