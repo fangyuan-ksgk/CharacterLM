@@ -16,7 +16,7 @@ for iter in $(seq 1 $num_iterations); do
     python data/enwiki/prepare_data.py --clean --out_dir="${curr_dir}" --tokenizer_path="${orig_dir}/tokenizer.json"
     
     # Train and evaluate
-    python train.py config/train_enwiki_char.py --init_from="retrain" --load_dir="${orig_dir}" --out_dir="${curr_dir}" --max_iters=${accumulated_iter}
+    python train.py config/train_enwiki_char.py --init_from="retrain" --load_dir="${orig_dir}" --out_dir="${curr_dir}" --max_iters=${accumulated_iter} --data_subfolder=""
     python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter}
 
 done
@@ -38,7 +38,7 @@ for iter in $(seq 1 $num_iterations); do
     python data/enwiki/prepare_data.py --clean --out_dir="${curr_dir}" --tokenizer_path="${orig_dir}/tokenizer.json"
     
     # Train and evaluate
-    python train.py config/train_enwiki_char.py --init_from="retrain" --load_dir="${orig_dir}" --out_dir="${curr_dir}" --max_iters=${accumulated_iter}
+    python train.py config/train_enwiki_char.py --init_from="retrain" --load_dir="${orig_dir}" --out_dir="${curr_dir}" --max_iters=${accumulated_iter} --data_subfolder=""
     python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter}
 
 done
