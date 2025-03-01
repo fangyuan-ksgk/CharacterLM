@@ -174,8 +174,8 @@ class ETokenizer:
         self.special_tokens = [self.eos_token, self.pad_token, self.user_token, self.assistant_token]
         self._init_token_trie(char_vocab, self.special_tokens)
         
-        self.template = {"user": self.user_token + " {user} " + self.eos_token, 
-                        "assistant": self.assistant_token + " {assistant} " + self.eos_token}
+        self.template = {"user": self.user_token + "{user}" + self.eos_token, 
+                        "assistant": self.assistant_token + "{assistant}" + self.eos_token}
         
         self.use_char = bool(char_vocab)
         self.char_vocab = char_vocab
@@ -655,14 +655,9 @@ class ETokenizer:
         
         for i, idx in enumerate(sequence):
             # Handle the final segment (strip trailing whitespace)
-            if i == len(sequence) - 1:
-                text = conv_texts[idx].rstrip() + "<|endoftext|>"
-                tokens = self.encode(text)
-                mask = [1 if idx in assistant_indices else 0] * len(tokens)
-            else:
-                text = conv_texts[idx]
-                tokens = conv_tokens[idx]
-                mask = conv_loss_masks[idx]
+            text = conv_texts[idx]
+            tokens = conv_tokens[idx]
+            mask = conv_loss_masks[idx]
                 
             formatted_text += text
             loss_mask.extend(mask)
