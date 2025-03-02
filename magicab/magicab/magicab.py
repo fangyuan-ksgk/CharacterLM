@@ -402,7 +402,8 @@ def save_magicab(checkpoint, magicab,
         "iter_num": new_iter_num, 
         "best_val_loss": new_val_loss, 
         "config": new_config,
-        "tokenizer_path": tokenizer_path
+        "tokenizer_path": tokenizer_path,
+        "flops": checkpoint['flops']
     }
     
     print(f"Saving model checkpoint with vocab_size: {new_vocab_size} to {model_ckpt_path}")

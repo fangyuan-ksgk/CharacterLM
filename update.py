@@ -81,3 +81,4 @@ prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_
 
 # Save model checkpoint & tokenizer | checkpoint is updated inside save_magicab
 save_magicab(checkpoint, magicab, new_dir)
+
