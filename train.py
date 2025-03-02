@@ -398,6 +398,7 @@ def train():
         wandb.init(project=wandb_project, name=wandb_run_name)
     
     # Add progress bar
+    global max_iters
     if max_flops is not None: 
         max_iters = adjust_max_iters_by_flops(model)
         print(f"Adjusted max_iters to {max_iters} to match available FLOPS")
