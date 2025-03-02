@@ -314,7 +314,8 @@ def get_batch(split, data_dir, block_size, batch_size, device_type, device):
 def compute_bpc(x, y, model, tokenizer): # corrected version
     per_token_nll = model(x, y, reduction='none')[1]  # shape: [batch_size, seq_len]
     per_token_char_count = torch.tensor([[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in y])  # shape: [batch_size, seq_len]
-    
+    print("  - average token entropy: ", per_token_nll.mean().item())
+    print("  - average token char count: ", per_token_char_count.mean().item())
     # Sum total NLL and total character count
     total_nll = per_token_nll.sum()
     total_chars = per_token_char_count.sum()
