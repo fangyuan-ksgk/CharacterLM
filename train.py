@@ -62,6 +62,7 @@ bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
 max_iters = 600000 # total number of training iterations
+max_flops = None # if not None, training will stop when reaching this flops
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
@@ -264,6 +265,12 @@ def init_model(vocab_size=None):
     
     return model, model_args
 
+def adjust_max_iters_by_flops(model): 
+    flops_per_fwdbwd = model.estimate_flops()
+    fwdbwd_per_iter = batch_size * gradient_accumulation_steps
+    flops_per_iter = flops_per_fwdbwd * fwdbwd_per_iter
+    max_iters = int(max_flops / flops_per_iter)
+    return max_iters
 
 @torch.no_grad()
 def estimate_loss(model, ctx, data_dir):
@@ -377,6 +384,8 @@ def train():
         wandb.init(project=wandb_project, name=wandb_run_name)
     
     # Add progress bar
+    if max_flops is not None: 
+        max_iters = adjust_max_iters_by_flops(model)
     pbar = tqdm(total=max_iters, initial=iter_num, dynamic_ncols=True)
     
     # Main training loop
