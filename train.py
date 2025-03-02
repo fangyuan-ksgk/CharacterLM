@@ -273,6 +273,7 @@ def init_model(vocab_size=None):
     
     return model, model_args
 
+
 def adjust_max_iters_by_flops(model): 
     flops_per_fwdbwd = model.estimate_flops()
     fwdbwd_per_iter = batch_size * gradient_accumulation_steps
