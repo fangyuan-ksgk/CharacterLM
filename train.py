@@ -304,6 +304,7 @@ def save_checkpoint(model, optimizer, model_args, iter_num, best_val_loss, is_dd
     tokenizer_path = os.path.join(out_dir, 'tokenizer.json')
     flops_per_fwdbad = model.estimate_flops() 
     flops = flops_per_fwdbad * iter_num * batch_size * gradient_accumulation_steps
+    accumulated_flops = current_flops + flops
     
     checkpoint = {
         'model': raw_model.state_dict(),
@@ -313,7 +314,7 @@ def save_checkpoint(model, optimizer, model_args, iter_num, best_val_loss, is_dd
         'best_val_loss': best_val_loss,
         'config': {k: globals()[k] for k in config_keys},
         "tokenizer_path": tokenizer_path,
-        "flops": flops
+        "flops": accumulated_flops
     }
     print(f"saving checkpoint to {out_dir}")
     torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
