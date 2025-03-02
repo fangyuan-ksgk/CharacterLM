@@ -366,8 +366,6 @@ def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, devi
     return token_count_dict, token_bpc_dict
 
 # Stange: I don't see any difference in token vocabulary ? --> my dataset is not updated ?
-    
-    
 
 
 def save_magicab(checkpoint, magicab, 
