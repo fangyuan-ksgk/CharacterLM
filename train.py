@@ -62,6 +62,7 @@ bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
 max_iters = 600000 # total number of training iterations
+current_flops = 0.0 # non-zero for resume training
 max_flops = None # if not None, training will stop when reaching this flops
 weight_decay = 1e-1
 beta1 = 0.9
@@ -192,7 +193,7 @@ def init_model(vocab_size=None):
             config = SplineGPTConfig(**model_args)
             model = SplineGPT(config)
             
-    elif init_from == 'retrain': 
+    elif init_from == 'retrain': # re-initialize weights, train with matching flops
         ckpt_path = os.path.join(load_dir, 'ckpt.pt')
         checkpoint = torch.load(ckpt_path, map_location=device)
         
@@ -215,8 +216,11 @@ def init_model(vocab_size=None):
             config = SplineGPTConfig(**model_args)
             model = SplineGPT(config)
             
+        global max_flops
+        max_flops = checkpoint['flops']
+        print(f"Loading checkpoint with flops: {max_flops}")
             
-    elif init_from == 'resume':
+    elif init_from == 'resume': # resume training, accumulate flops
         print(f"Resuming training from {out_dir}")
         ckpt_path = os.path.join(out_dir, 'ckpt.pt')
         checkpoint = torch.load(ckpt_path, map_location=device)
@@ -249,6 +253,10 @@ def init_model(vocab_size=None):
                 state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         model.load_state_dict(state_dict)
         
+        global current_flops
+        current_flops = checkpoint['flops']
+        print(f"Resuming training with flops: {current_flops}")
+        
     elif init_from.startswith('gpt2'):
         assert model_type == "GPT", "Only GPT is supported for loading from GPT-2 weights"
         print(f"Initializing from OpenAI GPT-2 weights: {init_from}")
@@ -269,7 +277,8 @@ def adjust_max_iters_by_flops(model):
     flops_per_fwdbwd = model.estimate_flops()
     fwdbwd_per_iter = batch_size * gradient_accumulation_steps
     flops_per_iter = flops_per_fwdbwd * fwdbwd_per_iter
-    max_iters = int(max_flops / flops_per_iter)
+    available_flops = max_flops - current_flops # remaining flops to allocate
+    max_iters = int(available_flops / flops_per_iter)
     return max_iters
 
 @torch.no_grad()
@@ -390,6 +399,8 @@ def train():
     # Add progress bar
     if max_flops is not None: 
         max_iters = adjust_max_iters_by_flops(model)
+        print(f"Adjusted max_iters to {max_iters} to match available FLOPS")
+        
     pbar = tqdm(total=max_iters, initial=iter_num, dynamic_ncols=True)
     
     # Main training loop

@@ -39,7 +39,7 @@ for iter in $(seq 1 $num_iterations); do
     # prepare encoding data 
     python data/enwiki/prepare_data.py --clean --out_dir="${curr_dir}" --tokenizer_path="${orig_dir}/tokenizer.json" --data_subfolder="${data_subfolder}"
     
-    # Train and evaluate
+    # Train and evaluate | Re-train requires flop matching
     python train.py config/train_enwiki_gpt_medium.py --init_from="retrain" --load_dir="${orig_dir}" --out_dir="${curr_dir}" --max_iters=${accumulated_iter} --data_subfolder="${data_subfolder}"
     python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter}
 
