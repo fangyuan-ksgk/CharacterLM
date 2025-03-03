@@ -13,7 +13,7 @@ for iter in $(seq 1 $num_iterations); do
     prev_dir="$run_dir/$([ $prev_iter -eq 0 ] && echo 'base' || echo "increase_iter${prev_iter}")"
     
     # Update Vocabulary
-    python update.py --out_dir="$prev_dir" --new_dir="$run_dir/increase_iter${iter}_raw" --data_subfolder="$data_subfolder" \
+    python update.py --load_dir="$prev_dir" --new_dir="$run_dir/increase_iter${iter}_raw" --data_subfolder="$data_subfolder" \
         --thres=0.3 --max_size_change=3000
     
     # # Create new directory and copy files
