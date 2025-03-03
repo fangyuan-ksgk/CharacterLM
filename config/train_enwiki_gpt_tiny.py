@@ -21,10 +21,10 @@ block_size = 512 # context of up to 512 previous characters
 
 # baby GPT model :) | GPT-2 Small Scale Model 
 model_type = "GPT"
-n_layer = 12
-n_head = 12
-n_embd = 768
-dropout = 0.1
+n_layer = 6
+n_head = 6
+n_embd = 384
+dropout = 0.2
 
 learning_rate = 5e-4 # gpt small 124M learning rate
 max_iters = 5000
