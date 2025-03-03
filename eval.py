@@ -56,7 +56,7 @@ if compile:
 
 # Load tokenizer from checkpoint 
 tokenizer = ETokenizer.load(checkpoint['tokenizer_path'])
-print("Loaded tokenizer with vocab size: ", tokenizer.vocab_sizes)
+print("Loaded tokenizer with vocab size: ", tokenizer.vocab_size)
 
 # Update Magicab Vocabulary & Training Data 
 if data_subfolder == "": 

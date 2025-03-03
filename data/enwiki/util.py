@@ -53,7 +53,7 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
     Args:
         clean (bool): Whether to use cleaned version of the dataset
         tokenizer: Custom tokenizer object. If None, uses character-level tokenization
-        checkpoint_dir (str): Directory to save tokenizer and model checkpoints
+        checkpoint_dir (str): Directory to save tokenizer
         tokenizer_path (str): Path to load a pre-existing tokenizer
         data_subfolder (str): Sub-folder within enwiki directory to store processed data
     Returns:
@@ -111,7 +111,7 @@ def prepare_enwiki_data(clean=False, tokenizer=None, checkpoint_dir="checkpoint/
         test_data = data[95_000_000:100_000_000]
 
     # encode all splits
-    print(f"Encoding data with tokenizer ...")
+    print(f"Encoding data with tokenizer (vocab size) {vocab_size} ...")
     train_ids = tokenizer.encode_with_chunking(train_data)
     val_ids = tokenizer.encode_with_chunking(val_data)
     test_ids = tokenizer.encode_with_chunking(test_data)
