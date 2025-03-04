@@ -1,7 +1,7 @@
 # Compute Matching Experiment (v.s. run5)
 orig_run_dir="checkpoint/gpt_tiny"
 run_dir="checkpoint/gpt_tiny_cm"
-data_subfolder="gpt_tiny"
+data_subfolder="gpt_tiny_cm"
 mkdir -p $run_dir
 
 num_iterations=6  # Adjust this number as needed
@@ -22,7 +22,7 @@ done
 
 # orig_run_dir="checkpoint/gpt_small"
 # run_dir="checkpoint/gpt_small_cm"
-# data_subfolder="gpt_small"
+# data_subfolder="gpt_small_cm"
 # mkdir -p $run_dir
 
 # num_iterations=8  # Adjust this number as needed
@@ -43,7 +43,7 @@ done
 
 # orig_run_dir="checkpoint/gpt_medium"
 # run_dir="checkpoint/gpt_medium_cm"
-# data_subfolder="gpt_medium"
+# data_subfolder="gpt_medium_cm"
 # mkdir -p $run_dir
 
 # num_iterations=8  # Adjust this number as needed
