@@ -16,7 +16,7 @@ for iter in $(seq 1 $num_iterations); do
     
     # Train and evaluate
     python train.py config/train_enwiki_gpt_small.py --init_from="retrain" --load_dir="${orig_dir}" --out_dir="${curr_dir}" --data_subfolder="${data_subfolder}"
-    python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter}
+    python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter} --data_subfolder="${data_subfolder}"
 
 done
 
@@ -37,7 +37,7 @@ done
     
 #     # Train and evaluate
 #     python train.py config/train_enwiki_gpt_small.py --init_from="retrain" --load_dir="${orig_dir}" --out_dir="${curr_dir}" --data_subfolder="${data_subfolder}"
-#     python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter}
+#     python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter} --data_subfolder="${data_subfolder}"
 
 # done
 
@@ -58,6 +58,6 @@ done
     
 #     # flop-matching training (with fixed vocabulary)
 #     python train.py config/train_enwiki_gpt_medium.py --init_from="retrain" --load_dir="${orig_dir}" --out_dir="${curr_dir}" --data_subfolder="${data_subfolder}"
-#     python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter}
+#     python eval.py --model_type="GPT" --out_dir="${run_dir}/increase_iter${iter}" --run_idx=${iter} --data_subfolder="${data_subfolder}"
 
 # done
