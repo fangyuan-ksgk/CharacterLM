@@ -34,8 +34,7 @@ from spline_model import SplineGPTConfig, SplineGPT
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
-load_dir = 'checkpoint/base'
-out_dir = 'checkpoint/sft'
+model_dir = "checkpoint/base"
 eval_interval = 2000
 log_interval = 1
 eval_iters = 200
