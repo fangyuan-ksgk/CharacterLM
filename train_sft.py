@@ -35,6 +35,7 @@ from spline_model import SplineGPTConfig, SplineGPT
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 model_dir = "checkpoint/base"
+our_dir = "checkpoint/sft"
 eval_interval = 2000
 log_interval = 1
 eval_iters = 200
@@ -211,7 +212,7 @@ def estimate_loss(model, ctx):
     return out
 
 
-def save_checkpoint(model, optimizer, model_args, iter_num, best_val_loss, is_ddp=False):
+def save_checkpoint(model, optimizer, model_args, iter_num, best_val_loss, out_dir, is_ddp=False):
     """Save model checkpoint."""
     raw_model = model.module if is_ddp else model
     tokenizer_path = os.path.join(out_dir, 'tokenizer.json')
@@ -326,7 +327,7 @@ def train():
                 best_val_loss = losses['val']
                 if iter_num > 0:
                     save_checkpoint(
-                        model, optimizer, model_args, iter_num, best_val_loss, is_ddp=env['ddp']
+                        model, optimizer, model_args, iter_num, best_val_loss, our_dir, is_ddp=env['ddp']
                     )
         
         # Training step
