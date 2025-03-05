@@ -1,6 +1,6 @@
 # Parameter for SFT
-
-out_dir = 'sft_gpt'
+model_dir = "checkpoint/gpt_tiny/base"
+out_dir = 'checkpoint/gpt_tiny/sft_base'
 eval_interval = 250 # keep frequent because we'll overfit
 eval_iters = 200
 log_interval = 10 # don't print too too often
