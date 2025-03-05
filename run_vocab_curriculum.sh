@@ -35,7 +35,7 @@ python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base" --data_subf
 python train.py $config_file --out_dir="$run_dir/base" --data_subfolder="$data_subfolder"
 python eval.py --model_type="GPT" --out_dir="$run_dir/base" --run_idx=0 --data_subfolder="$data_subfolder"
 
-num_iterations=6 1
+num_iterations=8
 for iter in $(seq 1 $num_iterations); do
     prev_iter=$((iter - 1))
     prev_dir="$run_dir/$([ $prev_iter -eq 0 ] && echo 'base' || echo "increase_iter${prev_iter}")"
@@ -63,7 +63,7 @@ python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base" --data_subf
 python train.py $config_file --out_dir="$run_dir/base" --data_subfolder="$data_subfolder"
 python eval.py --model_type="GPT" --out_dir="$run_dir/base" --run_idx=0 --data_subfolder="$data_subfolder"
 
-num_iterations=6 1
+num_iterations=8
 for iter in $(seq 1 $num_iterations); do
     prev_iter=$((iter - 1))
     prev_dir="$run_dir/$([ $prev_iter -eq 0 ] && echo 'base' || echo "increase_iter${prev_iter}")"
@@ -91,7 +91,7 @@ python data/enwiki/prepare_data.py --clean --out_dir="$run_dir/base" --data_subf
 python train.py $config_file --out_dir="$run_dir/base" --data_subfolder="$data_subfolder"
 python eval.py --model_type="GPT" --out_dir="$run_dir/base" --run_idx=0 --data_subfolder="$data_subfolder"
 
-num_iterations=6 1
+num_iterations=8
 for iter in $(seq 1 $num_iterations); do
     prev_iter=$((iter - 1))
     prev_dir="$run_dir/$([ $prev_iter -eq 0 ] && echo 'base' || echo "increase_iter${prev_iter}")"
@@ -119,7 +119,7 @@ done
 # python train.py $config_file --out_dir="$run_dir/base" --data_subfolder="$data_subfolder"
 # python eval.py --model_type="GPT" --out_dir="$run_dir/base" --run_idx=0 --data_subfolder="$data_subfolder"
 
-# num_iterations=6 1
+# num_iterations=8
 # for iter in $(seq 1 $num_iterations); do
 #     prev_iter=$((iter - 1))
 #     prev_dir="$run_dir/$([ $prev_iter -eq 0 ] && echo 'base' || echo "increase_iter${prev_iter}")"
