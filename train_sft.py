@@ -35,7 +35,7 @@ from spline_model import SplineGPTConfig, SplineGPT
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 model_dir = "checkpoint/base"
-our_dir = "checkpoint/sft"
+out_dir = "checkpoint/sft"
 eval_interval = 2000
 log_interval = 1
 eval_iters = 200
@@ -146,8 +146,8 @@ def init_model():
     
     """Initialize model based on configuration."""
     if init_from == 'resume':
-        print(f"Resuming training from {load_dir}")
-        ckpt_path = os.path.join(load_dir, 'ckpt.pt')
+        print(f"Resuming training from {model_dir}")
+        ckpt_path = os.path.join(model_dir, 'ckpt.pt')
         checkpoint = torch.load(ckpt_path, map_location=device)
         
         # Extract model configuration from checkpoint
@@ -327,7 +327,7 @@ def train():
                 best_val_loss = losses['val']
                 if iter_num > 0:
                     save_checkpoint(
-                        model, optimizer, model_args, iter_num, best_val_loss, our_dir, is_ddp=env['ddp']
+                        model, optimizer, model_args, iter_num, best_val_loss, out_dir, is_ddp=env['ddp']
                     )
         
         # Training step
