@@ -219,6 +219,29 @@ def init_model(vocab_size=None):
         global max_flops
         max_flops = checkpoint['flops']
         print(f"Loading checkpoint with flops: {max_flops}")
+        
+    elif init_from == "retrain_iter_match": 
+        ckpt_path = os.path.join(load_dir, 'ckpt.pt')
+        checkpoint = torch.load(ckpt_path, map_location=device)
+        
+        # Extract model configuration from checkpoint
+        checkpoint_model_args = checkpoint['model_args']
+        model_args = {}
+        
+        # Common parameters for all model types
+        for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
+            model_args[k] = checkpoint_model_args[k]
+            
+        # Create appropriate model type
+        if model_type == "GPT":
+            config = GPTConfig(**model_args)
+            model = GPT(config)
+        elif model_type == "SplineGPT":
+            # Add SplineGPT specific parameters
+            if 'spline_control_layers' in checkpoint_model_args:
+                model_args['spline_control_layers'] = checkpoint_model_args['spline_control_layers']
+            config = SplineGPTConfig(**model_args)
+            model = SplineGPT(config)
             
     elif init_from == 'resume': # resume training, accumulate flops
         print(f"Resuming training from {out_dir}")
