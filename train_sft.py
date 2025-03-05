@@ -45,18 +45,19 @@ init_from = 'resume' # 'scratch' or 'resume' or 'gpt2*'
 model_type = "GPT"
 # wandb logging
 wandb_log = False # disabled by default
-wandb_project = 'owt'
+wandb_project = 'alpaca-sft'
 wandb_run_name = 'gpt2' # 'run' + str(time.time())
+
 # data
-dataset = 'openwebtext'
-data_subfolder="enwiki"
-gradient_accumulation_steps = 5 * 8 # used to simulate larger batch sizes
+dataset = 'alpaca' # hard-coded for now 
+
+gradient_accumulation_steps = 1 # used to simulate larger batch sizes
 batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 512
 
 # adamw optimizer
-learning_rate = 6e-4 # max learning rate
-max_iters = 600000 # total number of training iterations
+learning_rate = 1e-4 # max learning rate
+max_iters = 5000 # total number of training iterations
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
@@ -64,7 +65,7 @@ grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
 # learning rate decay settings
 decay_lr = True # whether to decay the learning rate
 warmup_iters = 2000 # how many steps to warm up for
-lr_decay_iters = 600000 # should be ~= max_iters per Chinchilla
+lr_decay_iters = 20000 # should be ~= max_iters per Chinchilla
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
@@ -180,7 +181,7 @@ def init_model():
     elif init_from.startswith('gpt2'):
         assert model_type == "GPT", "Only GPT is supported for loading from GPT-2 weights"
         print(f"Initializing from OpenAI GPT-2 weights: {init_from}")
-        model = GPT.from_pretrained(init_from, dict(dropout=dropout))
+        model = GPT.from_pretrained(init_from, dict(dropout=0.1))
         # Extract model configuration
         model_args = {}
         for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
