@@ -19,8 +19,8 @@ block_size = 512 # context of up to 512 previous characters
 # baby GPT model :) | GPT-2 Small Scale Model 
 model_type = "GPT"
 n_layer = 10
-n_head = 10
-n_embd = 512
+n_head = 9
+n_embd = 513
 dropout = 0.2
 
 learning_rate = 1e-4 # gpt small 124M learning rate
