@@ -4,8 +4,8 @@ import gzip
 from datasets import load_dataset, Dataset
 from botocore.exceptions import ClientError
 from argparse import ArgumentParser
-
 import multiprocessing
+import platform
 
 s3 = boto3.client("s3")
 bucket_name = "softwareheritage"
@@ -59,6 +59,10 @@ def download_cosmopedia_v2(save_dir, cache_dir, num_proc, max_samples=None):
 
 # Download content from blob_id in Python Education dataset
 def download_python_edu_contents(blob_id):
+    # Initialize resources inside function instead of globally
+    s3 = boto3.client("s3")
+    bucket_name = "softwareheritage"
+    
     key = f"content/{blob_id}"
     try:
         obj = s3.get_object(Bucket=bucket_name, Key=key)
@@ -151,13 +155,19 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # Windows multiprocessing configuration compatibility
-    multiprocessing.freeze_support()
+    # Set multiprocessing start method based on platform
+    if platform.system() != "Windows":
+        # Use 'spawn' on Linux/Unix for better compatibility
+        multiprocessing.set_start_method('spawn', force=True)
+    else:
+        # Windows needs freeze_support
+        multiprocessing.freeze_support()
+        
     parser = ArgumentParser()
     parser.add_argument("--save_dir", type=str, default="./datasets")
     parser.add_argument("--cache_dir", type=str, default="./cache")
     parser.add_argument("--num_proc", type=int, default=1)
-    parser.add_argument("--is_parallel", type=bool, default=False, help="Whether to download all datasets in parallel.")
+    parser.add_argument("--is_parallel", action="store_true", help="Whether to download all datasets in parallel.")
     parser.add_argument("--max_samples", type=int, default=None, help="Maximum number of samples to keep per dataset. None means keep all.")
     args = parser.parse_args()
     print(args)

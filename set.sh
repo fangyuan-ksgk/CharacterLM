@@ -3,7 +3,7 @@ apt install zip
 pip install torch numpy transformers datasets tiktoken wandb tqdm
 pip install accelerate
 pip install SoMaJo
-pip install maturin
+pip install maturin boto3
 pip install einops scikit-learn
 # in case rust is not installed already
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
