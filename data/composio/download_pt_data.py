@@ -136,7 +136,7 @@ def main(args):
         download_funcs = [
             download_fineweb_edu,
             download_cosmopedia_v2,
-            download_python_edu,
+            # download_python_edu,
             download_fine_math,
         ]
         for func in download_funcs:
@@ -150,19 +150,11 @@ def main(args):
     else:
         download_fineweb_edu(args.save_dir, args.cache_dir, args.num_proc, args.max_samples)
         download_cosmopedia_v2(args.save_dir, args.cache_dir, args.num_proc, args.max_samples)
-        download_python_edu(args.save_dir, args.cache_dir, args.num_proc, args.max_samples)
+        # download_python_edu(args.save_dir, args.cache_dir, args.num_proc, args.max_samples)
         download_fine_math(args.save_dir, args.cache_dir, args.num_proc, args.max_samples)
 
 
 if __name__ == "__main__":
-    # Set multiprocessing start method based on platform
-    if platform.system() != "Windows":
-        # Use 'spawn' on Linux/Unix for better compatibility
-        multiprocessing.set_start_method('spawn', force=True)
-    else:
-        # Windows needs freeze_support
-        multiprocessing.freeze_support()
-        
     parser = ArgumentParser()
     parser.add_argument("--save_dir", type=str, default="./datasets")
     parser.add_argument("--cache_dir", type=str, default="./cache")
