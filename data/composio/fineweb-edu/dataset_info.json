@@ -1,0 +1,54 @@
+{
+  "citation": "",
+  "description": "",
+  "features": {
+    "text": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "metadata": {
+      "date": {
+        "dtype": "timestamp[us]",
+        "_type": "Value"
+      },
+      "dump": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "file_path": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "int_score": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "language": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "language_score": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "score": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "token_count": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "url": {
+        "dtype": "string",
+        "_type": "Value"
+      }
+    }
+  },
+  "homepage": "",
+  "license": ""
+}

@@ -1,7 +1,7 @@
 import os
 import boto3
 import gzip
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from botocore.exceptions import ClientError
 from argparse import ArgumentParser
 
@@ -18,13 +18,18 @@ def download_fineweb_edu(save_dir, cache_dir, num_proc, max_samples=None):
             "HuggingFaceTB/smollm-corpus",
             "fineweb-edu-dedup",
             split="train",
-            num_proc=num_proc,
+            streaming=True,
             cache_dir=cache_dir,
         )
         if max_samples is not None and max_samples > 0:
-            dataset = dataset.select(range(min(max_samples, len(dataset))))
+            dataset = dataset.take(max_samples)
+        
+        # Convert to standard dataset for processing
+        dataset_list = list(dataset)
+        dataset = Dataset.from_list(dataset_list)
+        
         print(dataset)
-        dataset.save_to_disk(save_dir + "/fineweb-edu", num_proc=num_proc)
+        dataset.save_to_disk(save_dir + "/fineweb-edu")
     except Exception as e:
         print(f"fineweb download error: {e}")
 
@@ -36,13 +41,18 @@ def download_cosmopedia_v2(save_dir, cache_dir, num_proc, max_samples=None):
             "HuggingFaceTB/smollm-corpus",
             "cosmopedia-v2",
             split="train",
-            num_proc=num_proc,
+            streaming=True,
             cache_dir=cache_dir,
         )
         if max_samples is not None and max_samples > 0:
-            dataset = dataset.select(range(min(max_samples, len(dataset))))
+            dataset = dataset.take(max_samples)
+            
+        # Convert to standard dataset for processing
+        dataset_list = list(dataset)
+        dataset = Dataset.from_list(dataset_list)
+        
         print(dataset)
-        dataset.save_to_disk(save_dir + "/cosmopedia-v2", num_proc=num_proc)
+        dataset.save_to_disk(save_dir + "/cosmopedia-v2")
     except Exception as e:
         print(f"cosmopedia download error: {e}")
 
@@ -70,17 +80,25 @@ def download_python_edu(save_dir, cache_dir, num_proc, max_samples=None):
             "HuggingFaceTB/smollm-corpus",
             "python-edu",
             split="train",
-            num_proc=num_proc,
+            streaming=True,
             cache_dir=cache_dir,
         )
-        dataset = dataset.map(
-            download_python_edu_contents, input_columns="blob_id", num_proc=num_proc
-        )
-        dataset = dataset.filter(lambda x: x["download_success"])
-        if max_samples is not None and max_samples > 0:
-            dataset = dataset.select(range(min(max_samples, len(dataset))))
+        
+        # Process and filter in memory with streaming data
+        processed_examples = []
+        for example in dataset:
+            result = download_python_edu_contents(example["blob_id"])
+            if result["download_success"]:
+                example.update(result)
+                processed_examples.append(example)
+            if max_samples is not None and max_samples > 0 and len(processed_examples) >= max_samples:
+                break
+                
+        # Convert to standard dataset
+        dataset = Dataset.from_list(processed_examples)
+        
         print(dataset)
-        dataset.save_to_disk(save_dir + "/python-edu", num_proc=num_proc)
+        dataset.save_to_disk(save_dir + "/python-edu")
     except Exception as e:
         print(f"python edu download error: {e}")
 
@@ -92,13 +110,18 @@ def download_fine_math(save_dir, cache_dir, num_proc, max_samples=None):
             "HuggingFaceTB/finemath",
             "finemath-4plus",
             split="train",
-            num_proc=num_proc,
+            streaming=True,
             cache_dir=cache_dir,
         )
         if max_samples is not None and max_samples > 0:
-            dataset = dataset.select(range(min(max_samples, len(dataset))))
+            dataset = dataset.take(max_samples)
+            
+        # Convert to standard dataset for processing
+        dataset_list = list(dataset)
+        dataset = Dataset.from_list(dataset_list)
+        
         print(dataset)
-        dataset.save_to_disk(save_dir + "/finemath", num_proc=num_proc)
+        dataset.save_to_disk(save_dir + "/finemath")
     except Exception as e:
         print(f"fine math download error: {e}")
 
