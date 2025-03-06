@@ -17,14 +17,16 @@ $ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123
 """
 
 import os
+import glob
 import time
 import math
-from tqdm import tqdm
+import shutil 
 import pickle
+from tqdm import tqdm
 from contextlib import nullcontext
 
-import numpy as np
 import torch
+import numpy as np
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
@@ -227,7 +229,11 @@ def save_checkpoint(model, optimizer, model_args, iter_num, best_val_loss, out_d
     }
     print(f"saving checkpoint to {out_dir}")
     torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
-    
+
+def save_tokenizer(model_dir, out_dir): 
+    tokenizer_files = glob.glob(os.path.join(model_dir, "*.json"))
+    for tokenizer_file in tokenizer_files:
+        shutil.copy(tokenizer_file, os.path.join(out_dir, os.path.basename(tokenizer_file)))
     
 def train_step(model, X, Y, loss_mask, optimizer, scaler, ctx, grad_accum_steps, is_ddp=False):
     """Execute a single training step with gradient accumulation."""
@@ -363,6 +369,9 @@ def train():
     if env['ddp']:
         destroy_process_group()
     pbar.close()
+    
+    # save tokenizer
+    save_tokenizer(model_dir, out_dir)
     
     
 if __name__ == "__main__":
