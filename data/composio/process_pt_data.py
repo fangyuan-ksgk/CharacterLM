@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer
 from datasets import load_from_disk, Dataset
 from argparse import ArgumentParser
-from magicab import Etokenizer
+from magicab import ETokenizer
 import torch
 import os
 
@@ -60,7 +60,7 @@ def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, trai
 
 def main(args):
     # Load Etokenizer
-    tokenizer = Etokenizer.load(args.tokenizer_name_or_path)
+    tokenizer = ETokenizer.load(args.tokenizer_name_or_path)
 
     # Initialize lists to collect all processed examples
     all_train_ids = []

@@ -20,6 +20,24 @@ def encode_char(text, special_tokens, special2idx, char2idx):
     return ids 
 
 
+def encode_bytes(text, special_tokens, special2idx, byte2idx):
+    """Encode text as byte tokens."""
+    pattern = f"({'|'.join(re.escape(token) for token in special_tokens)})"
+    segments = re.split(pattern, text)
+    ids = []
+    for seg in segments:
+        if not seg:  # Skip empty segments
+            continue
+        if seg in special2idx:  # Handle special tokens
+            ids.append(special2idx[seg])
+        else:  # Handle regular text as bytes
+            # Convert text to bytes and map to token IDs
+            byte_data = seg.encode('utf-8')
+            ids.extend(byte2idx[b] for b in byte_data)
+    return ids
+
+
+
 class TokenTrie:
     class Node:
         def __init__(self):
@@ -165,22 +183,34 @@ class ETokenizer:
     """ 
     ETokenizer is a tokenizer that could be updated on-the-fly 
     """
-    def __init__(self, char_vocab=False):
+    def __init__(self, char_vocab=False, byte_vocab=False, mode="char"):
 
         self.eos_token = "<|endoftext|>"
         self.pad_token = "<pad>"
         self.user_token = "<USER> "
         self.assistant_token = "<ASSISTANT> "
         self.special_tokens = [self.eos_token, self.pad_token, self.user_token, self.assistant_token]
-        self._init_token_trie(char_vocab, self.special_tokens)
         
+        self.mode = mode
+        if mode == "char":
+            self.char_vocab = char_vocab
+            self.use_char = True
+            self.char2idx = {c:i for i, c in char_vocab.items()} if char_vocab else {}
+            self._init_token_trie(char_vocab, self.special_tokens)
+            self.special_ids = list(self.special2idx.values())
+        elif mode == "byte":
+            self.byte_vocab = byte_vocab or {i: bytes([i]) for i in range(256)}
+            self.use_char = False
+            self.byte2idx = {bytes([i]): i for i in range(256)} if not byte_vocab else {b: i for i, b in byte_vocab.items()}
+            self._init_token_trie(byte_vocab, self.special_tokens)
+            self.special_ids = list(self.special2idx.values())
+        else:
+            raise ValueError(f"Invalid tokenizer mode: {mode}. Use 'char' or 'byte'")
+                
         self.template = {"user": self.user_token + "{user}" + self.eos_token, 
                         "assistant": self.assistant_token + "{assistant}" + self.eos_token}
         
-        self.use_char = bool(char_vocab)
-        self.char_vocab = char_vocab
-        self.char2idx = {c:i for i, c in char_vocab.items()}
-        self.special_ids = list(self.special2idx.values())        
+        
     
     def _init_token_trie(self, char_vocab, special_tokens=None):
         # Initialize TokenTrie with basic vocabulary
@@ -491,6 +521,10 @@ class ETokenizer:
         
     def encode_char(self, text): 
         return encode_char(text, self.special_tokens, self.special2idx, self.char2idx)
+    
+    
+    def encode_byte(self, text): 
+        pass 
     
     def save(self, path):
         """Save ETokenizer state to a JSON file."""
