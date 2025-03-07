@@ -33,22 +33,32 @@ def process_fine_math(example, tokenizer, max_length=2048):
     return {"ids": ids}
 
 
+def process_dataset(dataset, processor_fn, tokenizer, max_length, num_proc, train_size, val_size, desc_prefix):
+    """Generic function to process any dataset with the appropriate processor function"""
+    column_names = dataset.column_names
+    
+    train_dataset = dataset.select(range(train_size)).map(
+        processor_fn, 
+        fn_kwargs={'tokenizer': tokenizer, 'max_length': max_length},
+        num_proc=num_proc,
+        remove_columns=column_names,
+        batched=True,
+        desc=f"Processing {desc_prefix} train"
+    )
+    
+    val_dataset = dataset.select(range(train_size, train_size + val_size)).map(
+        processor_fn, 
+        fn_kwargs={'tokenizer': tokenizer, 'max_length': max_length},
+        num_proc=num_proc,
+        remove_columns=column_names,
+        batched=True,
+        desc=f"Processing {desc_prefix} val"
+    )
+    
+    print(f"Processed {desc_prefix}: {len(train_dataset)} train, {len(val_dataset)} val")
+    return train_dataset, val_dataset
+
 def main(args):
-
-    # Calculate the size of fineweb-edu, cosmopedia-v2, python-edu, fine-math
-    fineweb_edu_ratio, cosmopedia_v2_ratio, python_edu_ratio, fine_math_ratio = 0.7, 0.2, 0.05, 0.05
-
-    fineweb_edu_train_size = int(args.train_examples * fineweb_edu_ratio)
-    cosmopedia_v2_train_size = int(args.train_examples * cosmopedia_v2_ratio)
-    python_edu_train_size = int(args.train_examples * python_edu_ratio)
-    fine_math_train_size = int(args.train_examples * fine_math_ratio)
-
-    fineweb_edu_test_size = int(args.test_examples * fineweb_edu_ratio)
-    cosmopedia_v2_test_size = int(args.test_examples * cosmopedia_v2_ratio)
-    python_edu_test_size = int(args.test_examples * python_edu_ratio)
-    fine_math_test_size = int(args.test_examples * fine_math_ratio)
-
-
     # Load Etokenizer
     tokenizer = Etokenizer.load(args.tokenizer_name_or_path)
 
@@ -56,119 +66,35 @@ def main(args):
     all_train_ids = []
     all_val_ids = []
     
-    # Process fineweb-edu
-    dataset = load_from_disk(args.datasets_dir + '/fineweb-edu')
-    column_names = dataset.column_names
-    
-    # Split into train and val
-    train_size = fineweb_edu_train_size
-    val_size = fineweb_edu_test_size
-    
-    train_dataset = dataset.select(range(train_size)).map(
-        process_fineweb_edu, 
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': args.max_length},
-        num_proc=args.num_proc,
-        remove_columns=column_names,
-        batched=True,
-        desc="Processing fineweb-edu train"
-    )
-    val_dataset = dataset.select(range(train_size, train_size + val_size)).map(
-        process_fineweb_edu, 
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': args.max_length},
-        num_proc=args.num_proc,
-        remove_columns=column_names,
-        batched=True,
-        desc="Processing fineweb-edu val"
-    )
-    
-    all_train_ids.extend(train_dataset["ids"])
-    all_val_ids.extend(val_dataset["ids"])
-    print(f"Processed fineweb-edu: {len(train_dataset)} train, {len(val_dataset)} val")
-    
-    # Process Cosmopedia-v2
-    dataset = load_from_disk(args.datasets_dir + '/cosmopedia-v2')
-    column_names = dataset.column_names
-    
-    # Split into train and val
-    train_size = cosmopedia_v2_train_size
-    val_size = cosmopedia_v2_test_size
-    
-    train_dataset = dataset.select(range(train_size)).map(
-        process_cosmopedia, 
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': args.max_length},
-        num_proc=args.num_proc,
-        remove_columns=column_names,
-        desc="Processing cosmopedia-v2 train"
-    )
-    val_dataset = dataset.select(range(train_size, train_size + val_size)).map(
-        process_cosmopedia, 
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': args.max_length},
-        num_proc=args.num_proc,
-        remove_columns=column_names,
-        desc="Processing cosmopedia-v2 val"
-    )
-    
-    all_train_ids.extend(train_dataset["ids"])
-    all_val_ids.extend(val_dataset["ids"])
-    print(f"Processed cosmopedia-v2: {len(train_dataset)} train, {len(val_dataset)} val")
-    
-    # Process Python Education
-    dataset = load_from_disk(args.datasets_dir + '/python-edu')
-    column_names = dataset.column_names
-    
-    # Split into train and val
-    train_size = python_edu_train_size
-    val_size = python_edu_test_size
-    
-    train_dataset = dataset.select(range(train_size)).map(
-        process_python_edu, 
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': args.max_length},
-        num_proc=args.num_proc,
-        remove_columns=column_names,
-        batched=True,
-        desc="Processing python-edu train"
-    )
-    val_dataset = dataset.select(range(train_size, train_size + val_size)).map(
-        process_python_edu, 
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': args.max_length},
-        num_proc=args.num_proc,
-        remove_columns=column_names,
-        batched=True,
-        desc="Processing python-edu val"
-    )
-    
-    all_train_ids.extend(train_dataset["ids"])
-    all_val_ids.extend(val_dataset["ids"])
-    print(f"Processed python-edu: {len(train_dataset)} train, {len(val_dataset)} val")
-    
-    # Process FineMath
-    dataset = load_from_disk(args.datasets_dir + '/finemath')
-    column_names = dataset.column_names
-    
-    # Split into train and val
-    train_size = fine_math_train_size
-    val_size = fine_math_test_size
-    
-    train_dataset = dataset.select(range(train_size)).map(
-        process_fine_math,
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': args.max_length},
-        num_proc=args.num_proc,
-        remove_columns=column_names,
-        batched=True,
-        desc="Processing finemath train"
-    )
-    val_dataset = dataset.select(range(train_size, train_size + val_size)).map(
-        process_fine_math,
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': args.max_length},
-        num_proc=args.num_proc,
-        remove_columns=column_names,
-        batched=True,
-        desc="Processing finemath val"
-    )
-    
-    all_train_ids.extend(train_dataset["ids"])
-    all_val_ids.extend(val_dataset["ids"])
-    print(f"Processed finemath: {len(train_dataset)} train, {len(val_dataset)} val")
+    # Define dataset configs - each entry contains:
+    # (dataset_name, processor_function, train_size, val_size)
+    dataset_configs = [
+        ('fineweb-edu', process_fineweb_edu),
+        ('cosmopedia-v2', process_cosmopedia),
+        ('finemath', process_fine_math),
+    ]
+
+    # Process all datasets
+    for dataset_name, processor_fn, train_size, val_size in dataset_configs:
+        try:
+            dataset = load_from_disk(os.path.join(args.datasets_dir, dataset_name))
+            val_size = 1000
+            train_size = len(dataset) - val_size
+            train_dataset, val_dataset = process_dataset(
+                dataset=dataset,
+                processor_fn=processor_fn,
+                tokenizer=tokenizer,
+                max_length=args.max_length,
+                num_proc=args.num_proc,
+                train_size=train_size,
+                val_size=val_size,
+                desc_prefix=dataset_name
+            )
+            
+            all_train_ids.extend(train_dataset["ids"])
+            all_val_ids.extend(val_dataset["ids"])
+        except Exception as e:
+            print(f"Error processing {dataset_name}: {e}")
 
     # Save combined datasets as .bin files
     os.makedirs(args.save_dir, exist_ok=True)
