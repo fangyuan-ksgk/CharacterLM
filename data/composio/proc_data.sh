@@ -1,0 +1,1 @@
+python data/composio/download_pt_data.py --save_dir="data/composio/datasets" --cache_dir="data/composio/cache" --total_chars=2e9
