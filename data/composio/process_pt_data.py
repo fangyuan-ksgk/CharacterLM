@@ -5,6 +5,7 @@ from magicab import Etokenizer
 import torch
 import os
 
+
 def process_fineweb_edu(example, tokenizer, max_length=2048):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text)
