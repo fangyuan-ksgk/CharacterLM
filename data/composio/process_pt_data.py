@@ -75,7 +75,7 @@ def main(args):
     ]
 
     # Process all datasets
-    for dataset_name, processor_fn, train_size, val_size in dataset_configs:
+    for dataset_name, processor_fn in dataset_configs:
         try:
             dataset = load_from_disk(os.path.join(args.datasets_dir, dataset_name))
             val_size = 1000
