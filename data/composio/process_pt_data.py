@@ -6,40 +6,40 @@ import torch
 import os
 
 
-def process_fineweb_edu(example, tokenizer, max_length=2048):
+def process_fineweb_edu(example, tokenizer, block_size=512):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text)
     return {"ids": ids}
 
-def process_cosmopedia(example, tokenizer, max_length=2048):
+def process_cosmopedia(example, tokenizer, block_size=512):
     prompt = example['prompt']
     text = example['text']
     conversation = [
         {"user": prompt},
         {"assistant": text},
     ]
-    conv_text = tokenizer.prepare_sft_data(conversation)
+    conv_text = tokenizer.prepare_sft_data(conversation, block_size=block_size)
     ids = tokenizer.encode_with_chunking(conv_text)
     return {"ids": ids}
 
-def process_python_edu(example, tokenizer, max_length=2048):
+def process_python_edu(example, tokenizer, block_size=512):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text)
     return {"ids": ids}
 
-def process_fine_math(example, tokenizer, max_length=2048):
+def process_fine_math(example, tokenizer, block_size=512):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text)
     return {"ids": ids}
 
 
-def process_dataset(dataset, processor_fn, tokenizer, max_length, num_proc, train_size, val_size, desc_prefix):
+def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, train_size, val_size, desc_prefix):
     """Generic function to process any dataset with the appropriate processor function"""
     column_names = dataset.column_names
     
     train_dataset = dataset.select(range(train_size)).map(
         processor_fn, 
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': max_length},
+        fn_kwargs={'tokenizer': tokenizer, 'block_size': block_size},
         num_proc=num_proc,
         remove_columns=column_names,
         batched=True,
@@ -48,7 +48,7 @@ def process_dataset(dataset, processor_fn, tokenizer, max_length, num_proc, trai
     
     val_dataset = dataset.select(range(train_size, train_size + val_size)).map(
         processor_fn, 
-        fn_kwargs={'tokenizer': tokenizer, 'max_length': max_length},
+        fn_kwargs={'tokenizer': tokenizer, 'block_size': block_size},
         num_proc=num_proc,
         remove_columns=column_names,
         batched=True,
@@ -84,7 +84,7 @@ def main(args):
                 dataset=dataset,
                 processor_fn=processor_fn,
                 tokenizer=tokenizer,
-                max_length=args.max_length,
+                block_size=args.block_size,
                 num_proc=args.num_proc,
                 train_size=train_size,
                 val_size=val_size,
@@ -112,10 +112,8 @@ if __name__ == '__main__':
     argparser = ArgumentParser()
     argparser.add_argument("--datasets_dir", type=str, default="./datasets")
     argparser.add_argument("--save_dir", type=str, default="./datasets")
-    argparser.add_argument("--tokenizer_name_or_path", type=str, default="SmallDoge/Doge-tokenizer")
-    argparser.add_argument("--train_examples", type=int, default=128_000_000)
-    argparser.add_argument("--test_examples", type=int, default=1_000)
-    argparser.add_argument("--max_length", type=int, default=2048)
+    argparser.add_argument("--tokenizer_name_or_path", type=str, default="checkpoint/base/tokenizer.json")
+    argparser.add_argument("--block_size", type=int, default=512)
     argparser.add_argument("--num_proc", type=int, default=1)
     args = argparser.parse_args()
 
