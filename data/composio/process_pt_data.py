@@ -61,7 +61,7 @@ def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, trai
 def main(args):
     # Load Etokenizer
     if args.init_vocab:
-        tokenizer = ETokenizer.load(mode=args.mode)
+        tokenizer = ETokenizer(mode=args.mode)
     else:
         tokenizer = ETokenizer.load(args.tokenizer_name_or_path)
 
