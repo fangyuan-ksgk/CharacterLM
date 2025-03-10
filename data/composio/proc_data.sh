@@ -6,5 +6,5 @@ python data/composio/process_pt_data.py --datasets_dir="data/composio/datasets"\
                                         --block_size=512\
                                         --mode="byte"\
                                         --init_vocab=True\
-                                        --batch_size=1\
-                                        --max_workers=1
+                                        --batch_size=20\
+                                        --max_workers=8

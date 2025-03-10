@@ -145,14 +145,7 @@ def load_tokenizer(mode="char"):
     
 tokenizer = load_tokenizer(mode=mode)
 
-# issue -- missing tokenizer loaded in 
-if 'enwiki' in data_dir:
-    from magicab import get_batch 
-    get_batch = get_batch 
-else: 
-    from magicab import get_batch_slice 
-    get_batch = lambda data_dir, split: get_batch_slice(data_dir, pad_token_id=tokenizer.pad_token_id, block_size=block_size, batch_size=batch_size, device=device)
-    
+
 
 def get_lr(iter_num):
     """Calculate learning rate based on warmup and decay schedule."""
@@ -296,6 +289,22 @@ def adjust_max_iters_by_flops(model):
     max_iters = int(available_flops / flops_per_iter)
     return max_iters
 
+
+# Initialize data directory
+if data_subfolder == "":
+    data_dir = os.path.join('data', dataset)
+else:
+    data_dir = os.path.join('data', dataset, data_subfolder)
+        
+# issue -- missing tokenizer loaded in 
+if 'enwiki' in data_dir:
+    from magicab import get_batch 
+    get_batch = get_batch 
+else: 
+    from magicab import get_batch_slice 
+    get_batch = lambda data_dir, split: get_batch_slice(data_dir, pad_token_id=tokenizer.pad_token_id, block_size=block_size, batch_size=batch_size, device=device)
+    
+
 @torch.no_grad()
 def estimate_loss(model, ctx, data_dir):
     """Evaluate model on training and validation sets."""
@@ -368,12 +377,6 @@ def train():
     global device  # Update the global device variable
     env = setup_training_environment()
     device = env['device']
-    
-    # Initialize data directory
-    if data_subfolder == "":
-        data_dir = os.path.join('data', dataset)
-    else:
-        data_dir = os.path.join('data', dataset, data_subfolder)
     
     # Get vocabulary size from meta.pkl if available
     meta_path = os.path.join(data_dir, 'meta.pkl')
