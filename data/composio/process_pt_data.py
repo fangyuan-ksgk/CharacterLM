@@ -112,7 +112,8 @@ def main(args):
     torch.save(all_val_ids, val_path)
     
     if args.init_vocab:
-        tokenizer.save(args.tokenizer_name_or_path)
+        os.makedirs(os.path.dirname(args.tokenizer_name_or_path), exist_ok=True)
+        tokenizer.save(args.tokenizer_name_or_path + "/tokenizer.json")
 
 if __name__ == '__main__':
     argparser = ArgumentParser()
