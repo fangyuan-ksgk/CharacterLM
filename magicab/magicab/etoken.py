@@ -6,6 +6,8 @@ from rust_tokenizer import PyETokenizer
 from copy import deepcopy
 import time
 import random
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 def encode_char(text, special_tokens, special2idx, char2idx): 
     pattern = f"({'|'.join(re.escape(token) for token in special_tokens)})"
@@ -660,17 +662,11 @@ class ETokenizer:
         c.token_trie = deepcopy(self.token_trie)
         return c
     
-    def encode_with_chunking(self, text: Union[str, list], chunk_size=256*8): 
+    def encode_with_chunking(self, text: Union[str, list], chunk_size=256*8): # can we make this async, and parallelize across chunks?
         if isinstance(text, str): 
            chunks = chunk_text(text, chunk_size)
-           return _encode_chunks(chunks, self, chunk_size)
         elif isinstance(text, list): 
-            ids_list = [] 
-            for t in text: 
-                chunks = chunk_text(t, chunk_size)
-                ids = _encode_chunks(chunks, self, chunk_size)
-                ids_list.append(ids)
-            return ids_list
+            return _encode_chunks_parallel(text, self, chunk_size)
         else: 
             raise ValueError(f"Invalid input type: {type(text)}. Expected str or list.")    
     
@@ -806,10 +802,11 @@ def _encode_chunks(chunks, tok, chunk_size=256*8):
             ids.extend(chunk_ids[:-1])    
         prev_chunk_ids = chunk_ids    
         
-    if max_merge_len < len(chunk_ids):
-        ids.extend(chunk_ids[-1:])
+    if chunks and max_merge_len < len(prev_chunk_ids):
+        ids.extend(prev_chunk_ids[-1:])
         
     return ids
+
 
 def chunk_text(text, chunk_size=256*8):
     words = text.split()
@@ -833,3 +830,42 @@ def chunk_text(text, chunk_size=256*8):
     
     return chunks
 
+
+
+async def _encode_chunks_parallel(texts, tokenizer, chunk_size, batch_size=50):
+    """
+    Optimized async function for encoding text chunks.
+    Uses a thread pool for CPU-bound tokenization operations.
+    """
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    
+    # Create a shared thread pool with an appropriate number of workers
+    # For CPU-bound tasks, typically use min(32, os.cpu_count() + 4)
+    import os
+    max_workers = min(32, (os.cpu_count() or 4) + 4)
+    
+    # Pre-chunk all texts to reduce overhead within the async loop
+    chunked_texts = [(i, chunk_text(t, chunk_size)) for i, t in enumerate(texts)]
+    results = [None] * len(texts)
+    
+    async def process_batch(batch):
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                loop.run_in_executor(
+                    executor, 
+                    lambda x: (x[0], _encode_chunks(x[1], tokenizer, chunk_size)),
+                    item
+                )
+                for item in batch
+            ]
+            batch_results = await asyncio.gather(*futures)
+            for idx, ids in batch_results:
+                results[idx] = ids
+    
+    # Process in batches
+    batches = [chunked_texts[i:i+batch_size] for i in range(0, len(chunked_texts), batch_size)]
+    await asyncio.gather(*[process_batch(batch) for batch in batches])
+    
+    return results
