@@ -662,11 +662,21 @@ class ETokenizer:
         c.token_trie = deepcopy(self.token_trie)
         return c
     
-    def encode_with_chunking(self, text: Union[str, list], chunk_size=256*8, batch_size=50, max_workers=32): # can we make this async, and parallelize across chunks?
+    def encode_with_chunking(self, text: Union[str, list], chunk_size=256*8, batch_size=50, max_workers=32, mode='sequential'): # can we make this async, and parallelize across chunks?
         if isinstance(text, str): 
            chunks = chunk_text(text, chunk_size)
+           return _encode_chunks(chunks, self, chunk_size)
         elif isinstance(text, list): 
-            return _encode_chunks_parallel(text, self, chunk_size, batch_size=batch_size, max_workers=max_workers)
+            if mode == 'sequential':
+                ids = []
+                for t in text: 
+                    chunks = chunk_text(t, chunk_size)
+                    ids.extend(_encode_chunks(chunks, self, chunk_size))
+                return ids
+            elif mode == 'parallel': 
+                return _encode_chunks_parallel(text, self, chunk_size, batch_size=batch_size, max_workers=max_workers)
+            elif mode == 'multiprocessing': 
+                return multiprocessing_encoding(text, chunk_size, max_workers)
         else: 
             raise ValueError(f"Invalid input type: {type(text)}. Expected str or list.")    
     
@@ -911,3 +921,19 @@ async def _encode_chunks_parallel(texts, tokenizer, chunk_size, batch_size=20, m
                     print(f"Error processing text {i}: {str(e)}")
     
     return results
+
+
+from multiprocessing import Pool, cpu_count
+
+def _single_encoding(args): 
+    text, chunk_size = args
+    # Create tokenizer inside the process to avoid sharing across processes
+    process_tokenizer = ETokenizer(mode="byte")
+    chunks = chunk_text(text, chunk_size)
+    return _encode_chunks(chunks, process_tokenizer, chunk_size)
+
+def multiprocessing_encoding(texts, chunk_size=512, max_workers=8):
+    num_workers = min(max_workers, cpu_count())
+    args = [(text, chunk_size) for text in texts]
+    with Pool(num_workers) as p:
+        return p.map(_single_encoding, args)

@@ -9,7 +9,7 @@ import os
 
 def process_fineweb_edu(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
+    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 
 def process_cosmopedia(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
@@ -20,17 +20,17 @@ def process_cosmopedia(example, tokenizer, block_size=512, batch_size=20, max_wo
         {"assistant": text},
     ]
     conv_text = tokenizer.prepare_sft_data(conversation, block_size=block_size)
-    ids = tokenizer.encode_with_chunking(conv_text, batch_size=batch_size, max_workers=max_workers)
+    ids = tokenizer.encode_with_chunking(conv_text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 
 def process_python_edu(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
+    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 
 def process_fine_math(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
+    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 
 def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, train_size, val_size, desc_prefix, batch_size=20, max_workers=8):
