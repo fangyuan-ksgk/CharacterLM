@@ -7,6 +7,7 @@ __author__ = "Fangyuan Yu"
 
 from .magicab import Magicab, update_magicab, save_magicab
 from .etoken import ETokenizer
+from .data import get_batch_slice, save_sequences_for_memmap
 from .vis import *
 from .utils import *
 

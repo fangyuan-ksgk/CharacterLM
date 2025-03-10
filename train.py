@@ -31,6 +31,7 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 from spline_model import SplineGPTConfig, SplineGPT
 
+from magicab import ETokenizer
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
@@ -42,6 +43,7 @@ eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = True # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
+mode = "char" # mode of tokenizer
 model_type = "GPT"
 # wandb logging
 wandb_log = False # disabled by default
@@ -131,27 +133,25 @@ def setup_training_environment():
         'gradient_accumulation_steps': local_gradient_accumulation_steps
     }
     
+def load_tokenizer(mode="char"): 
+    if init_from == "scratch": 
+        tokenizer = ETokenizer(mode=mode)
+    else: # mode does not matter, we load from provided tokenizer path
+        ckpt_path = os.path.join(load_dir, 'ckpt.pt')
+        checkpoint = torch.load(ckpt_path, map_location=device)
+        tokenizer_path = checkpoint['tokenizer_path']
+        tokenizer = ETokenizer.from_pretrained(tokenizer_path)
+    return tokenizer 
     
-    
-def get_batch(data_dir, split):
-    """Load a batch of data from disk."""
-    # We recreate np.memmap every batch to avoid a memory leak
-    if split == 'train':
-        data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
-    else:
-        data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
-    
-    ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
-    y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
-    
-    if 'cuda' in device:
-        # pin arrays x,y, which allows us to move them to GPU asynchronously
-        x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
-    else:
-        x, y = x.to(device), y.to(device)
-    
-    return x, y
+tokenizer = load_tokenizer(mode=mode)
+
+# issue -- missing tokenizer loaded in 
+if 'enwiki' in data_dir:
+    from magicab import get_batch 
+    get_batch = get_batch 
+else: 
+    from magicab import get_batch_slice 
+    get_batch = lambda data_dir, split: get_batch_slice(data_dir, pad_token_id=tokenizer.pad_token_id, block_size=block_size, batch_size=batch_size, device=device)
     
 
 def get_lr(iter_num):
@@ -279,15 +279,6 @@ def init_model(vocab_size=None):
         global current_flops
         current_flops = checkpoint['flops']
         print(f"Resuming training with flops: {current_flops}")
-        
-    elif init_from.startswith('gpt2'):
-        assert model_type == "GPT", "Only GPT is supported for loading from GPT-2 weights"
-        print(f"Initializing from OpenAI GPT-2 weights: {init_from}")
-        model = GPT.from_pretrained(init_from, dict(dropout=dropout))
-        # Extract model configuration
-        model_args = {}
-        for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
-            model_args[k] = getattr(model.config, k)
     
     # Adjust block size if needed
     if block_size < model.config.block_size:

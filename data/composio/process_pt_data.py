@@ -1,7 +1,8 @@
 from transformers import AutoTokenizer
 from datasets import load_from_disk, Dataset
 from argparse import ArgumentParser
-from magicab import ETokenizer
+import numpy as np
+from magicab import ETokenizer, save_sequences_for_memmap
 import torch
 import os
 
@@ -57,7 +58,8 @@ def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, trai
     
     print(f"Processed {desc_prefix}: {len(train_dataset)} train, {len(val_dataset)} val")
     return train_dataset, val_dataset
-
+            
+            
 def main(args):
     # Load Etokenizer
     if args.init_vocab:
@@ -106,10 +108,10 @@ def main(args):
     val_path = os.path.join(args.save_dir, "val.bin")
     
     print(f"Saving {len(all_train_ids)} train examples to {train_path}")
-    torch.save(all_train_ids, train_path)
+    save_sequences_for_memmap(all_train_ids, train_path)
     
     print(f"Saving {len(all_val_ids)} val examples to {val_path}")
-    torch.save(all_val_ids, val_path)
+    save_sequences_for_memmap(all_val_ids, val_path)
     
     if args.init_vocab:
         os.makedirs(os.path.dirname(args.tokenizer_name_or_path), exist_ok=True)

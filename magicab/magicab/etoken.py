@@ -38,6 +38,35 @@ def encode_bytes(text, special_tokens, special2idx, byte2idx):
     return ids
 
 
+def decode_bytes(vocab, ids): 
+    result = []
+    byte_buffer = []
+    
+    # Process tokens by grouping consecutive byte tokens
+    for idx in ids:
+        token = vocab[idx]
+        if isinstance(token, bytes):
+            # Accumulate byte tokens
+            byte_buffer.append(token)
+        else:
+            # We hit a special token - decode any accumulated bytes first
+            if byte_buffer:
+                # Decode the accumulated bytes to a string
+                bytes_segment = b"".join(byte_buffer)
+                result.append(bytes_segment.decode("utf-8", errors="replace"))
+                byte_buffer = []
+            # Add the special token directly (it's already a string)
+            result.append(token)
+    
+    # Don't forget to process any remaining bytes in the buffer
+    if byte_buffer:
+        bytes_segment = b"".join(byte_buffer)
+        result.append(bytes_segment.decode("utf-8", errors="replace"))
+    
+    # Join all string segments
+    return "".join(result)
+
+
 
 class TokenTrie:
     class Node:
@@ -222,7 +251,14 @@ class ETokenizer:
         self.template = {"user": self.user_token + "{user}" + self.eos_token, 
                         "assistant": self.assistant_token + "{assistant}" + self.eos_token}
         
-        
+    @property 
+    def pad_token_id(self): 
+        return self.token_trie.token2id[self.pad_token]
+    
+    @property 
+    def eos_token_id(self): 
+        return self.token_trie.token2id[self.eos_token] 
+    
     
     def _init_token_trie(self, char_vocab=None, byte_vocab=None):
         # Initialize TokenTrie with basic vocabulary
@@ -288,9 +324,7 @@ class ETokenizer:
         if self.mode == "char": 
             return "".join(self.vocab[idx] for idx in ids)
         elif self.mode=="byte": 
-            text_bytes = b"".join(self.vocab[idx] for idx in ids)
-            text = text_bytes.decode("utf-8", errors="replace")
-            return text 
+            return decode_bytes(self.vocab, ids)
         else: 
             raise ValueError(f"Invalid tokenizer mode: {self.mode}. Use 'char' or 'byte'")
         
@@ -332,7 +366,11 @@ class ETokenizer:
             if start >= len(ids) - 1:
                 return None
             # Initialize the candidate using the first two tokens
-            current_str = self.token_trie.id2token[ids[start]] + self.token_trie.id2token[ids[start + 1]]
+            try: 
+                current_str = self.token_trie.id2token[ids[start]] + self.token_trie.id2token[ids[start + 1]] # buggy: when special_id is found, it's not a 'bytes' object
+            except: 
+                return None
+            
             merged_token_id = self.token_trie.find_token(current_str)
             if merged_token_id is None:
                 return None
