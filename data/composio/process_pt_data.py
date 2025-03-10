@@ -7,12 +7,12 @@ import torch
 import os
 
 
-def process_fineweb_edu(example, tokenizer, block_size=512, batch_size=50, max_workers=32):
+def process_fineweb_edu(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
     return {"ids": ids}
 
-def process_cosmopedia(example, tokenizer, block_size=512, batch_size=50, max_workers=32):
+def process_cosmopedia(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     prompt = example['prompt']
     text = example['text']
     conversation = [
@@ -23,17 +23,17 @@ def process_cosmopedia(example, tokenizer, block_size=512, batch_size=50, max_wo
     ids = tokenizer.encode_with_chunking(conv_text, batch_size=batch_size, max_workers=max_workers)
     return {"ids": ids}
 
-def process_python_edu(example, tokenizer, block_size=512, batch_size=50, max_workers=32):
+def process_python_edu(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
     return {"ids": ids}
 
-def process_fine_math(example, tokenizer, block_size=512, batch_size=50, max_workers=32):
+def process_fine_math(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
     return {"ids": ids}
 
-def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, train_size, val_size, desc_prefix, batch_size=50, max_workers=32):
+def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, train_size, val_size, desc_prefix, batch_size=20, max_workers=8):
     """Generic function to process any dataset with the appropriate processor function"""
     column_names = dataset.column_names
     
@@ -126,7 +126,8 @@ if __name__ == '__main__':
     argparser.add_argument("--init_vocab", type=bool, default=False)
     argparser.add_argument("--block_size", type=int, default=512)
     argparser.add_argument("--num_proc", type=int, default=1)
-    argparser.add_argument("--batch_size", type=int, default=50)
+    argparser.add_argument("--batch_size", type=int, default=20)
+    argparser.add_argument("--max_workers", type=int, default=8)
     args = argparser.parse_args()
 
     main(args)
