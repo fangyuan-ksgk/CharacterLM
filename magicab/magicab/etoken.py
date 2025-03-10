@@ -1,4 +1,4 @@
-from .base_tok import get_valid_stats, merge
+from .base_tok import get_valid_stats, merge, save_byte_vocab, load_byte_vocab
 import json, re
 from tqdm import tqdm  # Add this import at the top of the file
 from rust_tokenizer import PyETokenizer
@@ -147,12 +147,20 @@ class TokenTrie:
     def get_merge_result(self, id1: int, id2: int) -> int:
         return self.merges.get((id1, id2))
     
-    def save(self, path):
+    def save(self, path, mode="char"):
         """Save TokenTrie state to a JSON file."""
+        if mode == "char": 
+            id2token = {str(k): v for k, v in self.id2token.items()}
+        elif mode == "byte": 
+            byte_to_str_dict = {bytes([i]): str(i) for i in range(256)}
+            byte_to_str = lambda v: byte_to_str_dict[v] if v in byte_to_str_dict else v
+            id2token = {str(k): byte_to_str(v) for k, v in self.id2token.items()}
+            
         data = {
-            'id2token': {str(k): v for k, v in self.id2token.items()},
+            'id2token': id2token,
             'merges': {f"{k[0]},{k[1]}": v for k, v in self.merges.items()},
-            'next_id': self.next_id
+            'next_id': self.next_id,
+            "mode": mode
         }
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -167,7 +175,12 @@ class TokenTrie:
         
         # Restore tokens
         for k, v in data['id2token'].items():
-            trie.add_token(v, int(k))
+            if data['mode'] == "char": 
+                trie.add_token(v, int(k))
+            elif data['mode'] == "byte": 
+                str_to_byte_dict = {str(i): bytes([i]) for i in range(256)}
+                str_to_byte = lambda v: str_to_byte_dict[v] if v in str_to_byte_dict else v
+                trie.add_token(str_to_byte(v), int(k))
         
         # Restore merges
         for k, v in data['merges'].items():
@@ -194,15 +207,13 @@ class ETokenizer:
         self.mode = mode
         if mode == "char":
             self.char_vocab = char_vocab
-            self.use_char = True
             self.char2idx = {c:i for i, c in char_vocab.items()} if char_vocab else {}
-            self._init_token_trie(char_vocab, self.special_tokens)
+            self._init_token_trie(char_vocab=self.char_vocab)
             self.special_ids = list(self.special2idx.values())
         elif mode == "byte":
             self.byte_vocab = byte_vocab or {i: bytes([i]) for i in range(256)}
-            self.use_char = False
-            self.byte2idx = {bytes([i]): i for i in range(256)} if not byte_vocab else {b: i for i, b in byte_vocab.items()}
-            self._init_token_trie(byte_vocab, self.special_tokens)
+            self.byte2idx = {i: i for i in range(256)} if not byte_vocab else {b: i for i, b in byte_vocab.items()}
+            self._init_token_trie(byte_vocab=self.byte_vocab)
             self.special_ids = list(self.special2idx.values())
         else:
             raise ValueError(f"Invalid tokenizer mode: {mode}. Use 'char' or 'byte'")
@@ -212,15 +223,21 @@ class ETokenizer:
         
         
     
-    def _init_token_trie(self, char_vocab, special_tokens=None):
+    def _init_token_trie(self, char_vocab=None, byte_vocab=None):
         # Initialize TokenTrie with basic vocabulary
         self.token_trie = TokenTrie()
         self.special2idx = {}
     
         # Use provided character vocabulary
-        for idx, token in char_vocab.items():
-            token_idx = idx
-            self.token_trie.add_token(token, token_idx)
+        if char_vocab:
+            for idx, token in char_vocab.items():
+                token_idx = idx
+                self.token_trie.add_token(token, token_idx)
+                
+        if byte_vocab:
+            for idx, token in byte_vocab.items():
+                token_idx = idx
+                self.token_trie.add_token(token, token_idx)
                 
         # Add special tokens first
         vocab_size = len(self.token_trie.id2token)
@@ -267,11 +284,15 @@ class ETokenizer:
 
     def decode(self, ids):
         # given ids (list of integers), return Python string
-        if self.use_char:
+        if self.mode == "char": 
             return "".join(self.vocab[idx] for idx in ids)
-        text_bytes = b"".join(self.vocab[idx] for idx in ids)
-        text = text_bytes.decode("utf-8", errors="replace")
-        return text 
+        elif self.mode=="byte": 
+            text_bytes = b"".join(self.vocab[idx] for idx in ids)
+            text = text_bytes.decode("utf-8", errors="replace")
+            return text 
+        else: 
+            raise ValueError(f"Invalid tokenizer mode: {self.mode}. Use 'char' or 'byte'")
+        
     
     def _encode_python_exhaustive(self, ids): 
         """
@@ -362,7 +383,7 @@ class ETokenizer:
         Exhaustive Encoding | Byte level vocabulary base --- we need character-level vocabulary
         """
         start_time = time.time()
-        ids = self.encode_char(text)
+        ids = self.encode_id(text)
         char_time = time.time() - start_time
         # print(" - Char encode time: ", char_time)
 
@@ -524,14 +545,22 @@ class ETokenizer:
     
     
     def encode_byte(self, text): 
-        pass 
+        return encode_bytes(text, self.special_tokens, self.special2idx, self.byte2idx)
+    
+    def encode_id(self, text): 
+        if self.mode == "char": 
+            return self.encode_char(text)
+        elif self.mode == "byte": 
+            return self.encode_byte(text)
+        else: 
+            raise ValueError(f"Invalid tokenizer mode: {self.mode}. Use 'char' or 'byte'")
     
     def save(self, path):
         """Save ETokenizer state to a JSON file."""
         data = {
             'char_vocab': {str(k): v for k, v in self.char_vocab.items()},
             'special_tokens': self.special_tokens,
-            'use_char': self.use_char
+            'mode': self.mode
         }
         
         # Save main data
@@ -549,10 +578,14 @@ class ETokenizer:
             data = json.load(f)
         
         # Convert char_vocab keys back to integers
-        char_vocab = {int(k): v for k, v in data['char_vocab'].items()}
+        char_vocab, byte_vocab = None, None
+        if data['mode'] == "char": 
+            char_vocab = {int(k): v for k, v in data['char_vocab'].items()}
+        elif data['mode'] == "byte": 
+            byte_vocab = {int(k): v for k, v in data['byte_vocab'].items()}
         
         # Create instance (this already sets up use_char, char_vocab, char2idx)
-        inst = cls(char_vocab)
+        inst = cls(char_vocab=char_vocab, byte_vocab=byte_vocab)
         inst.special_tokens = data['special_tokens']
         
         # Load TokenTrie from separate file

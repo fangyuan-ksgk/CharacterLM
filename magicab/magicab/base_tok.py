@@ -7,7 +7,7 @@ some concessions are made for simplicity.
 """
 import unicodedata
 from copy import deepcopy 
-
+import json 
 
 # -----------------------------------------------------------------------------
 # a few helper functions useful for both BasicTokenizer and RegexTokenizer
@@ -96,6 +96,22 @@ def _remove_tokens(tokenizer, tokens_to_remove):
     # Problem: leaf-token is calculated wrongly, local leaf-token is not global leaf-token 
     # - we ends up removing tokens which left-over merges depends on ...
     return new_vocab, new_merges
+
+
+def save_byte_vocab(byte_vocab: dict, save_dir: str): 
+    byte_to_int = {bytes([i]): i for i in range(256)}
+    converted_vocab = {k: byte_to_int[v] for k, v in byte_vocab.items()}
+    with open(save_dir + "/byte_vocab.json", "w") as f: 
+        json.dump(converted_vocab, f)
+
+
+def load_byte_vocab(save_dir: str): 
+    with open(save_dir + "/byte_vocab.json", "r") as f: 
+        raw_vocab = json.load(f)
+    int_to_byte = lambda k: bytes([k])
+    
+    byte_vocab = {k: int_to_byte(v) for k, v in raw_vocab.items()}
+    return byte_vocab
 
 # -----------------------------------------------------------------------------
 # the base Tokenizer class
