@@ -757,7 +757,7 @@ def _encode_chunks(chunks, tok, chunk_size=256*8):
     max_merge_len = max([len(v) for v in tok.vocab.values()])
     ids = []
     prev_chunk_ids = []
-    for chunk in tqdm(chunks): 
+    for chunk in chunks: 
         chunk_ids = tok.encode(chunk)
         
         if prev_chunk_ids: 
