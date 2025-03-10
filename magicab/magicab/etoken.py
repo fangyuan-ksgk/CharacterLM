@@ -1,5 +1,5 @@
 from .base_tok import get_valid_stats, merge, save_byte_vocab, load_byte_vocab
-import json, re
+import json, re, os
 from tqdm import tqdm  # Add this import at the top of the file
 from rust_tokenizer import PyETokenizer
 from copy import deepcopy
