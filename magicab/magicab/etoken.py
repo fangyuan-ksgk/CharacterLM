@@ -1,5 +1,6 @@
 from .base_tok import get_valid_stats, merge, save_byte_vocab, load_byte_vocab
 import json, re, os
+from typing import Union
 from tqdm import tqdm  # Add this import at the top of the file
 from rust_tokenizer import PyETokenizer
 from copy import deepcopy
@@ -621,8 +622,15 @@ class ETokenizer:
         c.token_trie = deepcopy(self.token_trie)
         return c
     
-    def encode_with_chunking(self, text, chunk_size=256*8): 
-        chunks = chunk_text(text, chunk_size)
+    def encode_with_chunking(self, text: Union[str, list], chunk_size=256*8): 
+        if isinstance(text, str): 
+           chunks = chunk_text(text, chunk_size)
+        elif isinstance(text, list): 
+            chunks = [] 
+            for t in text: 
+                chunks.extend(chunk_text(t, chunk_size))
+        else: 
+            raise ValueError(f"Invalid input type: {type(text)}. Expected str or list.")
         return _encode_chunks(chunks, self, chunk_size)
     
     
