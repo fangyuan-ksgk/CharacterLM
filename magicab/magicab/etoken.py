@@ -625,14 +625,16 @@ class ETokenizer:
     def encode_with_chunking(self, text: Union[str, list], chunk_size=256*8): 
         if isinstance(text, str): 
            chunks = chunk_text(text, chunk_size)
+           return _encode_chunks(chunks, self, chunk_size)
         elif isinstance(text, list): 
-            chunks = [] 
+            ids_list = [] 
             for t in text: 
-                chunks.extend(chunk_text(t, chunk_size))
+                chunks = chunk_text(t, chunk_size)
+                ids = _encode_chunks(chunks, self, chunk_size)
+                ids_list.append(ids)
+            return ids_list
         else: 
-            raise ValueError(f"Invalid input type: {type(text)}. Expected str or list.")
-        return _encode_chunks(chunks, self, chunk_size)
-    
+            raise ValueError(f"Invalid input type: {type(text)}. Expected str or list.")    
     
     def apply_chat_template(self, conversation,
                             add_generation_prompt=True, block_size=512): 
