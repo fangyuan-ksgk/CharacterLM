@@ -166,7 +166,7 @@ class TokenTrie:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     @classmethod
-    def load(cls, path):
+    def load(cls, path, mode='char'):
         """Load TokenTrie from a JSON file."""
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -175,9 +175,9 @@ class TokenTrie:
         
         # Restore tokens
         for k, v in data['id2token'].items():
-            if data['mode'] == "char": 
+            if ('mode' in data and data['mode'] == "char") or mode == "char": 
                 trie.add_token(v, int(k))
-            elif data['mode'] == "byte": 
+            elif ('mode' in data and data['mode'] == "byte") or mode == "byte": 
                 str_to_byte_dict = {str(i): bytes([i]) for i in range(256)}
                 str_to_byte = lambda v: str_to_byte_dict[v] if v in str_to_byte_dict else v
                 trie.add_token(str_to_byte(v), int(k))
@@ -205,12 +205,12 @@ class ETokenizer:
         self.special_tokens = [self.eos_token, self.pad_token, self.user_token, self.assistant_token]
         
         self.mode = mode
-        if mode == "char":
+        if mode == "char" or char_vocab:
             self.char_vocab = char_vocab
             self.char2idx = {c:i for i, c in char_vocab.items()} if char_vocab else {}
             self._init_token_trie(char_vocab=self.char_vocab)
             self.special_ids = list(self.special2idx.values())
-        elif mode == "byte":
+        elif mode == "byte" or byte_vocab:
             self.byte_vocab = byte_vocab or {i: bytes([i]) for i in range(256)}
             self.byte2idx = {i: i for i in range(256)} if not byte_vocab else {b: i for i, b in byte_vocab.items()}
             self._init_token_trie(byte_vocab=self.byte_vocab)
@@ -557,11 +557,21 @@ class ETokenizer:
     
     def save(self, path):
         """Save ETokenizer state to a JSON file."""
-        data = {
-            'char_vocab': {str(k): v for k, v in self.char_vocab.items()},
-            'special_tokens': self.special_tokens,
-            'mode': self.mode
-        }
+        if self.mode == "char": 
+            vocab_dict = self.char_vocab
+            data = {
+                'char_vocab': vocab_dict,
+                'special_tokens': self.special_tokens,
+                'mode': self.mode
+            }
+        else: 
+            byte_to_str_dict = {bytes([i]): str(i) for i in range(256)}
+            vocab_dict = {str(k): byte_to_str_dict[v] for k, v in self.byte_vocab.items()}
+            data = {
+                'byte_vocab': vocab_dict,
+                'special_tokens': self.special_tokens,
+                'mode': self.mode
+            }
         
         # Save main data
         with open(path, 'w', encoding='utf-8') as f:
@@ -569,7 +579,7 @@ class ETokenizer:
         
         # Save TokenTrie to a separate file
         trie_path = path.replace('.json', '_trie.json')
-        self.token_trie.save(trie_path)
+        self.token_trie.save(trie_path, mode=self.mode)
 
     @classmethod
     def load(cls, path):
@@ -579,18 +589,20 @@ class ETokenizer:
         
         # Convert char_vocab keys back to integers
         char_vocab, byte_vocab = None, None
-        if data['mode'] == "char": 
+        if ("mode" in data and data['mode'] == "char") or "char_vocab" in data: 
             char_vocab = {int(k): v for k, v in data['char_vocab'].items()}
-        elif data['mode'] == "byte": 
-            byte_vocab = {int(k): v for k, v in data['byte_vocab'].items()}
-        
+            mode = "char"
+        elif ("mode" in data and data['mode'] == "byte") or "byte_vocab" in data: 
+            str_to_byte_dict = {str(i): bytes([i]) for i in range(256)}
+            byte_vocab = {int(k): str_to_byte_dict[v] for k, v in data['byte_vocab'].items()}
+            mode = "byte"
         # Create instance (this already sets up use_char, char_vocab, char2idx)
-        inst = cls(char_vocab=char_vocab, byte_vocab=byte_vocab)
+        inst = cls(char_vocab=char_vocab, byte_vocab=byte_vocab, mode=mode)
         inst.special_tokens = data['special_tokens']
         
         # Load TokenTrie from separate file
         trie_path = path.replace('.json', '_trie.json')
-        inst.token_trie = TokenTrie.load(trie_path)
+        inst.token_trie = TokenTrie.load(trie_path, mode=mode)
         
         # Only need to rebuild special token mappings
         inst.special2idx = {token: inst.token_trie.token2id[token] 
