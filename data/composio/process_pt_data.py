@@ -7,12 +7,12 @@ import torch
 import os
 
 
-def process_fineweb_edu(example, tokenizer, block_size=512):
+def process_fineweb_edu(example, tokenizer, block_size=512, batch_size=50, max_workers=32):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text)
+    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
     return {"ids": ids}
 
-def process_cosmopedia(example, tokenizer, block_size=512):
+def process_cosmopedia(example, tokenizer, block_size=512, batch_size=50, max_workers=32):
     prompt = example['prompt']
     text = example['text']
     conversation = [
@@ -20,27 +20,26 @@ def process_cosmopedia(example, tokenizer, block_size=512):
         {"assistant": text},
     ]
     conv_text = tokenizer.prepare_sft_data(conversation, block_size=block_size)
-    ids = tokenizer.encode_with_chunking(conv_text)
+    ids = tokenizer.encode_with_chunking(conv_text, batch_size=batch_size, max_workers=max_workers)
     return {"ids": ids}
 
-def process_python_edu(example, tokenizer, block_size=512):
+def process_python_edu(example, tokenizer, block_size=512, batch_size=50, max_workers=32):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text)
+    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
     return {"ids": ids}
 
-def process_fine_math(example, tokenizer, block_size=512):
+def process_fine_math(example, tokenizer, block_size=512, batch_size=50, max_workers=32):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text)
+    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers)
     return {"ids": ids}
 
-
-def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, train_size, val_size, desc_prefix):
+def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, train_size, val_size, desc_prefix, batch_size=50, max_workers=32):
     """Generic function to process any dataset with the appropriate processor function"""
     column_names = dataset.column_names
     
     train_dataset = dataset.select(range(train_size)).map(
         processor_fn, 
-        fn_kwargs={'tokenizer': tokenizer, 'block_size': block_size},
+        fn_kwargs={'tokenizer': tokenizer, 'block_size': block_size, 'batch_size': batch_size, 'max_workers': max_workers},
         num_proc=num_proc,
         remove_columns=column_names,
         batched=True,
@@ -49,7 +48,7 @@ def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, trai
     
     val_dataset = dataset.select(range(train_size, train_size + val_size)).map(
         processor_fn, 
-        fn_kwargs={'tokenizer': tokenizer, 'block_size': block_size},
+        fn_kwargs={'tokenizer': tokenizer, 'block_size': block_size, 'batch_size': batch_size, 'max_workers': max_workers},
         num_proc=num_proc,
         remove_columns=column_names,
         batched=True,
@@ -93,7 +92,8 @@ def main(args):
                 num_proc=args.num_proc,
                 train_size=train_size,
                 val_size=val_size,
-                desc_prefix=dataset_name
+                desc_prefix=dataset_name,
+                batch_size=args.batch_size
             )
             
             all_train_ids.extend(train_dataset["ids"])
@@ -126,6 +126,7 @@ if __name__ == '__main__':
     argparser.add_argument("--init_vocab", type=bool, default=False)
     argparser.add_argument("--block_size", type=int, default=512)
     argparser.add_argument("--num_proc", type=int, default=1)
+    argparser.add_argument("--batch_size", type=int, default=50)
     args = argparser.parse_args()
 
     main(args)
