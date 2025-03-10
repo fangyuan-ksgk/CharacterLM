@@ -60,7 +60,10 @@ def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, trai
 
 def main(args):
     # Load Etokenizer
-    tokenizer = ETokenizer.load(args.tokenizer_name_or_path)
+    if args.init_vocab:
+        tokenizer = ETokenizer.load(mode=args.mode)
+    else:
+        tokenizer = ETokenizer.load(args.tokenizer_name_or_path)
 
     # Initialize lists to collect all processed examples
     all_train_ids = []
@@ -107,12 +110,17 @@ def main(args):
     
     print(f"Saving {len(all_val_ids)} val examples to {val_path}")
     torch.save(all_val_ids, val_path)
+    
+    if args.init_vocab:
+        tokenizer.save(os.path.join(args.tokenizer_name_or_path, "tokenizer.json"))
 
 if __name__ == '__main__':
     argparser = ArgumentParser()
     argparser.add_argument("--datasets_dir", type=str, default="./datasets")
     argparser.add_argument("--save_dir", type=str, default="./datasets")
     argparser.add_argument("--tokenizer_name_or_path", type=str, default="checkpoint/base/tokenizer.json")
+    argparser.add_argument("--mode", type=str, default="char")
+    argparser.add_argument("--init_vocab", type=bool, default=False)
     argparser.add_argument("--block_size", type=int, default=512)
     argparser.add_argument("--num_proc", type=int, default=1)
     args = argparser.parse_args()
