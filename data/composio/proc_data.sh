@@ -2,7 +2,7 @@ python data/composio/download_pt_data.py --save_dir="data/composio/datasets" --c
 
 python data/composio/process_pt_data.py --datasets_dir="data/composio/datasets"\
                                         --save_dir="data/composio/processed"\
-                                        --tokenizer_name_or_path="checkpoint/base_byte/tokenizer.json"\
+                                        --tokenizer_name_or_path="checkpoint/base_byte"\
                                         --block_size=512\
                                         --mode="byte"\
                                         --init_vocab=True
