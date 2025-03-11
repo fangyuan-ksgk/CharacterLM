@@ -34,8 +34,8 @@ def get_batch_slice(file_path, pad_token_id, block_size=512, batch_size=2, devic
     seq_offsets = [offsets[i] for i in seq_indices]
     
     # Choose start position for the block
-    x_data = [] 
-    y_data = []
+    x_list = [] 
+    y_list = []
     for seq_idx, seq_length, seq_offset in zip(seq_indices, seq_lengths, seq_offsets):
         if seq_length <= block_size:
             start_pos = 0
@@ -74,11 +74,11 @@ def get_batch_slice(file_path, pad_token_id, block_size=512, batch_size=2, devic
         x = torch.from_numpy(x_data.astype(np.int64))
         y = torch.from_numpy(y_data.astype(np.int64))
         
-        x_data.append(x)
-        y_data.append(y)
+        x_list.append(x)
+        y_list.append(y)
         
-    x = torch.stack(x_data)
-    y = torch.stack(y_data)
+    x = torch.stack(x_list)
+    y = torch.stack(y_list)
     
     # Move to device
     if 'cuda' in device:
