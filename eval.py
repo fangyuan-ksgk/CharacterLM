@@ -41,6 +41,15 @@ if data_subfolder == "":
 else: 
     data_dir = os.path.join('data', data_dir, data_subfolder)
 
+
+from magicab.magicab import get_batch, get_batch_slice
+if 'enwiki' in data_dir: 
+    get_batch = get_batch 
+else: 
+    get_batch = lambda data_dir, split: get_batch_slice(data_dir + f"/{split}.bin", tokenizer.pad_token_id, block_size, batch_size, device)
+    
+
+
 bpc = evaluate_bpc(model, tokenizer, data_dir, 256, batch_size, "cpu", device, num_batches=10)
 print(f"BPC of loaded checkpoint: {bpc}")
 

@@ -259,7 +259,7 @@ class Magicab:
     
 from tqdm import tqdm 
 
-def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_size_change: int = 2000, num_batches: int = 20): 
+def update_magicab(magicab, data_dir, block_size, batch_size, device_type, get_batch_fn, max_size_change: int = 2000, num_batches: int = 20): 
     """
     Updates the Magicab vocabulary based on random batches of training data
     
@@ -275,7 +275,7 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_s
     # Process random batches
     for _ in tqdm(range(num_batches), desc="Caching vocabulary changes"):
         # Use existing get_batch function
-        x, y = get_batch('train', data_dir, block_size, batch_size, device_type, device_type)
+        x, y = get_batch_fn(data_dir, 'train', block_size, batch_size, device_type, device_type)
             
         # Cache vocabulary change for this batch
         magicab.cache_vocab_change(input_ids=x, target_ids=y,
@@ -293,37 +293,6 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type, max_s
     magicab.update_vocab(max_size_change=max_size_change)
     
     return magicab
-
-def get_batch(split, data_dir, block_size, batch_size, device_type, device):
-    # We recreate np.memmap every batch to avoid a memory leak, as per
-    # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
-    if split == 'train':
-        data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
-    else:
-        data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
-    ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
-    y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
-    if device_type == 'cuda':
-        # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
-        x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
-    else:
-        x, y = x.to(device), y.to(device)
-    return x, y
-
-def compute_bpc(x, y, model, tokenizer): # corrected version
-    per_token_nll = model(x, y, reduction='none')[1]  # shape: [batch_size, seq_len]
-    per_token_char_count = torch.tensor([[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in y])  # shape: [batch_size, seq_len]
-    print("  - average token entropy: ", per_token_nll.mean().item())
-    print("  - average token char count: ", per_token_char_count.float().mean().item())
-
-    # Sum total NLL and total character count
-    total_nll = per_token_nll.sum()
-    total_chars = per_token_char_count.sum()
-    
-    # Calculate true BPC across all characters
-    bpc = (total_nll.to("cpu").detach() / total_chars) / torch.log(torch.tensor(2.0))
-    return bpc
 
 def update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict): 
     per_token_nll = model(x, y, reduction='none')[1]  # [batch_size, seq_len]
@@ -346,20 +315,13 @@ def update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict):
             
     return token_bpc_dict, token_count_dict
 
-def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device_type, device, num_batches=10):
-    total_bpc = 0 
-    for _ in tqdm(range(num_batches), desc="Evaluating BPC"): 
-        x, y = get_batch('val', data_dir, block_size, batch_size, device_type, device)
-        bpc_loss = compute_bpc(x, y, model, tokenizer)
-        total_bpc += bpc_loss.mean()
-    return total_bpc / num_batches
 
-def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, device_type, device, num_batches=10): 
+def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, device_type, device, get_batch_fn,num_batches=10): 
     token_count_dict = defaultdict(int)
     token_bpc_dict = defaultdict(list)
     
     for _ in tqdm(range(num_batches), desc="Evaluating Token Statistics"): 
-        x, y = get_batch('val', data_dir, block_size, batch_size, device_type, device)
+        x, y = get_batch_fn(data_dir, 'val', block_size, batch_size, device_type, device)
         token_bpc_dict, token_count_dict = update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict)
         
     token_bpc_dict = {token: sum(bpc_list) / len(bpc_list) for token, bpc_list in token_bpc_dict.items()}
