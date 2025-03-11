@@ -4,6 +4,13 @@
 
 [![arxiv](https://img.shields.io/badge/arXiv-2502.17910-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2502.17910)
 
+Ongoing: 
+- Support byte level tokenization
+- Experiment with larger scale pre-train dataset
+- GRPO from-scratch
+- Arithmetic pre-training experiment (compare entropy tokenizer with BPE)
+- Coding pre-training experiment (compare entropy tokenizer with BPE)
+
 </div>
 
 Set up 
