@@ -10,7 +10,7 @@ from data.enwiki.util import prepare_enwiki_data
 # -----------------------------------------------------------------------------
 load_dir = "checkpoint/base"
 new_dir = "checkpoint/update"
-dataset = "enwiki"
+dataset = "enwiki" # "composio/datasets"
 data_subfolder = ""
 device = 'cuda'
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
@@ -58,6 +58,13 @@ if data_subfolder == "":
     data_dir = os.path.join('data', dataset)
 else: 
     data_dir = os.path.join('data', dataset, data_subfolder)
+    
+if 'enwiki' in data_dir:
+    from magicab.data import get_batch 
+    get_batch = get_batch 
+else: 
+    from magicab.data import get_batch_slice 
+    get_batch = partial(get_batch_slice, pad_token_id=tokenizer.pad_token_id)
 
 # Update Magicab Vocabulary 
 if truncate_vocab: 
@@ -70,12 +77,27 @@ else:
                 block_size=block_size, 
                 batch_size=batch_size, 
                 device_type=device,
+                get_batch_fn=get_batch,
                 max_size_change=max_size_change)
 
 print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size)
 
 # Update Training Data 
-prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir, data_subfolder=data_subfolder)
+if 'enwiki' in data_dir:
+    prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir, data_subfolder=data_subfolder)
+elif 'composio' in data_dir: 
+    print("Composio dataset encoding functional here ...")
+    from data.composio.util import process_composio_pt_data
+    process_composio_pt_data(
+        datasets_dir=os.path.join('data', dataset),
+        save_dir=os.path.join('data', 'composio', data_subfolder), # little twist
+        tokenizer_path= new_dir + "/tokenizer.json",
+        mode="byte",
+        init_vocab=False,
+        tokenizer=magicab.tokenizer,
+        batch_size=batch_size,
+        block_size=block_size,
+    )
 
 # Save model checkpoint & tokenizer | checkpoint is updated inside save_magicab
 save_magicab(checkpoint, magicab, new_dir)

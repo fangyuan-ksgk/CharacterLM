@@ -275,7 +275,7 @@ def update_magicab(magicab, data_dir, block_size, batch_size, device_type, get_b
     # Process random batches
     for _ in tqdm(range(num_batches), desc="Caching vocabulary changes"):
         # Use existing get_batch function
-        x, y = get_batch_fn(data_dir, 'train', block_size, batch_size, device_type, device_type)
+        x, y = get_batch_fn(data_dir, 'train', block_size, batch_size, device_type)
             
         # Cache vocabulary change for this batch
         magicab.cache_vocab_change(input_ids=x, target_ids=y,

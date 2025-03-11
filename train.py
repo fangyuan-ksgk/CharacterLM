@@ -298,12 +298,11 @@ else:
         
 # issue -- missing tokenizer loaded in 
 if 'enwiki' in data_dir:
-    from magicab import get_batch 
+    from magicab.data import get_batch 
     get_batch = get_batch 
 else: 
-    from magicab import get_batch_slice 
-    get_batch = lambda data_dir, split: get_batch_slice(data_dir + "/" + split + ".bin", pad_token_id=tokenizer.pad_token_id, block_size=block_size, batch_size=batch_size, device=device)
-    
+    from magicab.data import get_batch_slice 
+    get_batch = partial(get_batch_slice, pad_token_id=tokenizer.pad_token_id)
 
 @torch.no_grad()
 def estimate_loss(model, ctx, data_dir):

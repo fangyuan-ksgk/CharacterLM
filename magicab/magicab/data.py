@@ -19,8 +19,9 @@ def save_sequences_for_memmap(sequences, file_path):
             np.array(seq, dtype=np.int32).tofile(f)
             
             
-def get_batch_slice(file_path, pad_token_id, block_size=512, batch_size=2, device='cpu'):
+def get_batch_slice(data_dir, split, pad_token_id, block_size=512, batch_size=2, device='cpu'):
     
+    file_path = os.path.join(data_dir, f"{split}.bin")
     with open(file_path, 'rb') as f:
         n_seq = np.fromfile(f, dtype=np.int32, count=1)[0]
         offsets = np.fromfile(f, dtype=np.int64, count=n_seq)
@@ -125,10 +126,10 @@ def compute_bpc(x, y, model, tokenizer): # corrected version
     bpc = (total_nll.to("cpu").detach() / total_chars) / torch.log(torch.tensor(2.0))
     return bpc
 
-def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device_type, device, num_batches=10):
+def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device_type, device, get_batch_fn, num_batches=10):
     total_bpc = 0 
     for _ in tqdm(range(num_batches), desc="Evaluating BPC"): 
-        x, y = get_batch('val', data_dir, block_size, batch_size, device_type, device)
+        x, y = get_batch_fn(data_dir, 'val', block_size, batch_size, device_type, device)
         bpc_loss = compute_bpc(x, y, model, tokenizer)
         total_bpc += bpc_loss.mean()
     return total_bpc / num_batches

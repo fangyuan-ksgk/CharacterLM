@@ -2,6 +2,7 @@ import os
 import pickle, json
 import torch
 import numpy as np 
+from functools import partial
 from model import GPTConfig, GPT
 from spline_model import SplineGPTConfig, SplineGPT
 from magicab import ETokenizer
@@ -42,18 +43,18 @@ else:
     data_dir = os.path.join('data', data_dir, data_subfolder)
 
 
-from magicab.magicab import get_batch, get_batch_slice
-if 'enwiki' in data_dir: 
+
+if 'enwiki' in data_dir:
+    from magicab.data import get_batch 
     get_batch = get_batch 
 else: 
-    get_batch = lambda data_dir, split: get_batch_slice(data_dir + f"/{split}.bin", tokenizer.pad_token_id, block_size, batch_size, device)
+    from magicab.data import get_batch_slice # require pad_token_id
+    get_batch = partial(get_batch_slice, pad_token_id=tokenizer.pad_token_id)
     
-
-
-bpc = evaluate_bpc(model, tokenizer, data_dir, 256, batch_size, "cpu", device, num_batches=10)
+bpc = evaluate_bpc(model, tokenizer, data_dir, 256, batch_size, "cpu", device, get_batch, num_batches=10)
 print(f"BPC of loaded checkpoint: {bpc}")
 
-token_count_dict, token_bpc_dict = evaluate_token_stat(model, tokenizer, data_dir, 256, 256, "cpu", device, num_batches=10)
+token_count_dict, token_bpc_dict = evaluate_token_stat(model, tokenizer, data_dir, 256, 256, "cpu", device, get_batch, num_batches=10)
 print(f"Token count dict: {token_count_dict}")
 print(f"Token BPC dict: {token_bpc_dict}")
 
