@@ -3,6 +3,7 @@ from magicab import ETokenizer
 from datasets import load_from_disk
 from magicab.data import save_sequences_for_memmap
 import pickle 
+
 def process_fineweb_edu(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
