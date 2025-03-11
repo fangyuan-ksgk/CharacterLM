@@ -5,6 +5,8 @@ def main(args):
     
     print("Loaded tokenizer from:  ***", args.tokenizer_name_or_path,"***")
     args.tokenizer_name_or_path = args.tokenizer_name_or_path.strip()
+    args.datasets_dir = args.datasets_dir.strip()
+    args.save_dir = args.save_dir.strip()
     
     process_composio_pt_data(
         datasets_dir=args.datasets_dir,
