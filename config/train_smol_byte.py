@@ -16,7 +16,7 @@ wandb_log = False # override via command line if you like
 wandb_project = 'smol_byte'
 wandb_run_name = 'gpt_tiny'
 
-dataset = 'composio/datasets'
+dataset = 'composio'
 data_subfolder="gpt_tiny"
 gradient_accumulation_steps = 1
 batch_size = 64
