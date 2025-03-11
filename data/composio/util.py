@@ -2,7 +2,7 @@ import os
 from magicab import ETokenizer
 from datasets import load_from_disk
 from magicab.data import save_sequences_for_memmap
-
+import pickle 
 def process_fineweb_edu(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
     text = example['text']
     ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
@@ -124,4 +124,13 @@ def process_composio_pt_data(
     
     if init_vocab: 
         os.makedirs(tokenizer_path, exist_ok=True)
-        tokenizer.save(tokenizer_path + "/tokenizer.json")    
+        tokenizer.save(tokenizer_path + "/tokenizer.json")  
+        
+    # save meta file 
+    meta_path = os.path.join(save_dir, 'meta.pkl')
+    meta = {
+        "vocab_size": tokenizer.vocab_size, 
+        "tokenizer_path": os.path.join(save_dir, 'tokenizer.json')
+    }
+    with open(meta_path, 'wb') as f:
+        pickle.dump(meta, f)
