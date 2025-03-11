@@ -302,7 +302,7 @@ if 'enwiki' in data_dir:
     get_batch = get_batch 
 else: 
     from magicab import get_batch_slice 
-    get_batch = lambda data_dir, split: get_batch_slice(data_dir, pad_token_id=tokenizer.pad_token_id, block_size=block_size, batch_size=batch_size, device=device)
+    get_batch = lambda data_dir, split: get_batch_slice(data_dir + "/" + split + ".bin", pad_token_id=tokenizer.pad_token_id, block_size=block_size, batch_size=batch_size, device=device)
     
 
 @torch.no_grad()
