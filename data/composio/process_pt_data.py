@@ -27,6 +27,7 @@ if __name__ == '__main__':
     argparser.add_argument("--num_proc", type=int, default=1)
     argparser.add_argument("--batch_size", type=int, default=20)
     argparser.add_argument("--max_workers", type=int, default=8)
+    argparser.add_argument("--val_size", type=int, default=1000)
     args = argparser.parse_args()
 
     main(args)

@@ -6,7 +6,7 @@ from functools import partial
 from model import GPTConfig, GPT
 from spline_model import SplineGPTConfig, SplineGPT
 from magicab import ETokenizer
-from magicab.magicab import evaluate_bpc, evaluate_token_stat
+from magicab.data import evaluate_bpc, evaluate_token_stat
 
 # -----------------------------------------------------------------------------
 out_dir = 'checkpoint/base' # ignored if init_from is not 'resume'

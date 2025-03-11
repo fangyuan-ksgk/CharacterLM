@@ -21,6 +21,7 @@ import time
 import math
 from tqdm import tqdm
 import pickle
+from functools import partial
 from contextlib import nullcontext
 
 import numpy as np
@@ -296,7 +297,6 @@ if data_subfolder == "":
 else:
     data_dir = os.path.join('data', dataset, data_subfolder)
         
-# issue -- missing tokenizer loaded in 
 if 'enwiki' in data_dir:
     from magicab.data import get_batch 
     get_batch = get_batch 
