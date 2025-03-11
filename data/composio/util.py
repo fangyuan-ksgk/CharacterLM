@@ -74,7 +74,10 @@ def process_composio_pt_data(
         assert tokenizer is not None or tokenizer_path is not None, "Tokenizer must be provided if init_vocab is False"
         if not tokenizer: 
             print(f" Loading tokenizer from {tokenizer_path}")
-            tokenizer = ETokenizer.load(tokenizer_path + "/tokenizer.json") 
+            if os.path.exists(tokenizer_path + "/tokenizer.json"):
+                tokenizer = ETokenizer.load(tokenizer_path + "/tokenizer.json") 
+            else: 
+                tokenizer = ETokenizer.load(tokenizer_path)
     
     # Initialize lists to collect all processed examples
     all_train_ids = []
