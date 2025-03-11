@@ -378,7 +378,7 @@ def train():
     device = env['device']
     
     # Get vocabulary size from meta.pkl if available
-    meta_path = os.path.join(data_dir, 'meta.pkl')
+    meta_path = os.path.join(data_dir, 'meta.pkl') # did not save meta file in pt processing=
     meta_vocab_size = None
     if os.path.exists(meta_path):
         with open(meta_path, 'rb') as f:

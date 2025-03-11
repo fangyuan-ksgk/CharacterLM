@@ -10,7 +10,7 @@ from magicab.magicab import evaluate_bpc, evaluate_token_stat
 
 # -----------------------------------------------------------------------------
 out_dir = 'checkpoint/base' # ignored if init_from is not 'resume'
-data_dir = "enwiki"
+dataset = "composio"
 data_subfolder = ""
 model_type="GPT"
 run_idx=1
@@ -37,12 +37,7 @@ block_size = model.config.block_size
 tokenizer = ETokenizer.load(checkpoint['tokenizer_path'])
 print("Loaded tokenizer with vocab size: ", tokenizer.vocab_size)
 
-if data_subfolder == "": 
-    data_dir = os.path.join('data', 'enwiki')
-else: 
-    data_dir = os.path.join('data', data_dir, data_subfolder)
-
-
+data_dir = os.path.join('data', dataset) if data_subfolder == "" else os.path.join('data', dataset, data_subfolder)
 
 if 'enwiki' in data_dir:
     from magicab.data import get_batch 
