@@ -3,6 +3,8 @@ from util import process_composio_pt_data
 
 def main(args):
     
+    print("Loaded tokenizer from:  ***", args.tokenizer_name_or_path,"***")
+    
     process_composio_pt_data(
         datasets_dir=args.datasets_dir,
         save_dir=args.save_dir,
