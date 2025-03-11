@@ -19,7 +19,7 @@ def process_cosmopedia(example, tokenizer, block_size=512, batch_size=20, max_wo
         {"user": prompt},
         {"assistant": text},
     ]
-    conv_text = tokenizer.prepare_sft_data(conversation, block_size=block_size)
+    conv_text = tokenizer.prepare_pt_conversation_data(conversation)
     ids = tokenizer.encode_with_chunking(conv_text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 

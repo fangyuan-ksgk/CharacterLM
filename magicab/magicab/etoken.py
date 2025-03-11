@@ -741,7 +741,40 @@ class ETokenizer:
                 "loss_mask": loss_mask
             }
         return formatted_text.strip()
-     
+    
+    def _prepare_pt_conversation_data(self, conversation): 
+        conv_text = ""
+        for i, conv in enumerate(conversation): 
+            role = "user" if "user" in conv else "assistant"
+            turn_text = self.template[role].format(**conv)
+            conv_text += turn_text
+        return conv_text
+    
+    def prepare_pt_conversation_data(self, conversation): 
+        # assumption is each conversation has same rounds
+        
+        # calculate number of conversations (batch-size) | every conversation has first round 
+        for i, conv in enumerate(conversation): 
+            role = "user" if "user" in conv else "assistant"
+            n_conv = len(conv[role])
+            break 
+        
+        # split each conversation and prepare list
+        conv_texts = [[] for _ in range(n_conv)]
+        conversations = [[] for _ in range(n_conv)]
+        
+        for i, conv in enumerate(conversation): 
+            role = "user" if "user" in conv else "assistant"
+            for j in range(n_conv): 
+                conversations[j].append({role: conv[role][j]})        
+        
+        for i in range(n_conv): 
+            conv_texts[i] = self._prepare_pt_conversation_data(conversations[i])
+            
+        return conv_texts
+        
+        
+        
 
     def random_slice_conversation(self, user_indices, assistant_indices, conv_texts, conv_tokens, conv_loss_masks, block_size):
         """
