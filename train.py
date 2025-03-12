@@ -312,7 +312,7 @@ def estimate_loss(model, ctx, data_dir):
     for split in ['train', 'val']:
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
-            X, Y = get_batch(data_dir, split)
+            X, Y = get_batch(data_dir, split, block_size, batch_size, device)
             with ctx:
                 logits, loss = model(X, Y)
             losses[k] = loss.item()
@@ -423,7 +423,7 @@ def train():
     pbar = tqdm(total=max_iters, initial=iter_num, dynamic_ncols=True)
     
     # Main training loop
-    X, Y = get_batch(data_dir, 'train')  # Get first batch
+    X, Y = get_batch(data_dir, 'train', block_size, batch_size, device)  # Get first batch
     t0 = time.time()
     local_iter_num = 0
     running_mfu = -1.0
@@ -463,7 +463,7 @@ def train():
         )
         
         # Get next batch
-        X, Y = get_batch(data_dir, 'train')
+        X, Y = get_batch(data_dir, 'train', block_size, batch_size, device)
         
         # Timing and logging
         t1 = time.time()

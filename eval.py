@@ -6,7 +6,7 @@ from functools import partial
 from model import GPTConfig, GPT
 from spline_model import SplineGPTConfig, SplineGPT
 from magicab import ETokenizer
-from magicab.data import evaluate_bpc, evaluate_token_stat
+from magicab.magicab import evaluate_bpc, evaluate_token_stat
 
 # -----------------------------------------------------------------------------
 out_dir = 'checkpoint/base' # ignored if init_from is not 'resume'
@@ -49,7 +49,7 @@ else:
 bpc = evaluate_bpc(model, tokenizer, data_dir, 256, batch_size, "cpu", device, get_batch, num_batches=10)
 print(f"BPC of loaded checkpoint: {bpc}")
 
-token_count_dict, token_bpc_dict = evaluate_token_stat(model, tokenizer, data_dir, 256, 256, "cpu", device, get_batch, num_batches=10)
+token_count_dict, token_bpc_dict = evaluate_token_stat(model, tokenizer, data_dir, 256, 256, device, get_batch, num_batches=10)
 print(f"Token count dict: {token_count_dict}")
 print(f"Token BPC dict: {token_bpc_dict}")
 

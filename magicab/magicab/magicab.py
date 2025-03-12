@@ -321,7 +321,7 @@ def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, devi
     token_bpc_dict = defaultdict(list)
     
     for _ in tqdm(range(num_batches), desc="Evaluating Token Statistics"): 
-        x, y = get_batch_fn(data_dir, 'val', block_size, batch_size, device_type, device)
+        x, y = get_batch_fn(data_dir, 'val', block_size, batch_size, device)
         token_bpc_dict, token_count_dict = update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict)
         
     token_bpc_dict = {token: sum(bpc_list) / len(bpc_list) for token, bpc_list in token_bpc_dict.items()}
