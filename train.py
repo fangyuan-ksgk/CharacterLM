@@ -302,7 +302,7 @@ if 'enwiki' in data_dir:
     get_batch = get_batch 
 else: 
     from magicab.data import get_batch_slice 
-    get_batch = partial(get_batch_slice, pad_token_id=tokenizer.pad_token_id)
+    get_batch = lambda data_dir, split, block_size, batch_size, device: get_batch_slice(data_dir, split, tokenizer.pad_token_id, block_size, batch_size, device)
 
 @torch.no_grad()
 def estimate_loss(model, ctx, data_dir):

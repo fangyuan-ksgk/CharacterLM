@@ -6,7 +6,7 @@ from functools import partial
 from model import GPTConfig, GPT
 from spline_model import SplineGPTConfig, SplineGPT
 from magicab import ETokenizer
-from magicab.magicab import evaluate_bpc, evaluate_token_stat
+from magicab import evaluate_bpc, evaluate_token_stat
 
 # -----------------------------------------------------------------------------
 out_dir = 'checkpoint/base' # ignored if init_from is not 'resume'
@@ -44,7 +44,7 @@ if 'enwiki' in data_dir:
     get_batch = get_batch 
 else: 
     from magicab.data import get_batch_slice # require pad_token_id
-    get_batch = partial(get_batch_slice, pad_token_id=tokenizer.pad_token_id)
+    get_batch = lambda data_dir, split, block_size, batch_size, device: get_batch_slice(data_dir, split, tokenizer.pad_token_id, block_size, batch_size, device)
     
 bpc = evaluate_bpc(model, tokenizer, data_dir, 256, batch_size, "cpu", device, get_batch, num_batches=10)
 print(f"BPC of loaded checkpoint: {bpc}")
