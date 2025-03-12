@@ -671,7 +671,7 @@ class ETokenizer:
                 ids = []
                 for t in text: 
                     chunks = chunk_text(t, chunk_size)
-                    ids.extend(_encode_chunks(chunks, self, chunk_size))
+                    ids.append(_encode_chunks(chunks, self, chunk_size))
                 return ids
             elif mode == 'parallel': 
                 return _encode_chunks_parallel(text, self, chunk_size, batch_size=batch_size, max_workers=max_workers)
