@@ -22,7 +22,7 @@ def download_fineweb_edu(save_dir, cache_dir, max_samples=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--save_dir", type=str, default="./datasets")
+    parser.add_argument("--save_dir", type=str, default=".")
     parser.add_argument("--cache_dir", type=str, default="./cache")
     parser.add_argument("--max_samples", type=int, default=None)
     args = parser.parse_args()
