@@ -8,15 +8,11 @@ def download_fineweb_edu(save_dir, cache_dir, max_samples=None):
             "HuggingFaceFW/fineweb", 
             name="sample-10BT", 
             split="train",
-            streaming=True,
+            streaming=False,
             cache_dir=cache_dir,
         )
         if max_samples is not None and max_samples > 0:
             dataset = dataset.take(max_samples)
-        
-        # Convert to standard dataset for processing
-        dataset_list = list(dataset)
-        dataset = Dataset.from_list(dataset_list)
         
         print(dataset)
         dataset.save_to_disk(save_dir + "/fineweb-10B")
