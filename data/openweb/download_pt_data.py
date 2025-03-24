@@ -6,7 +6,7 @@ def download_fineweb_edu(save_dir, cache_dir, max_samples=None):
     try:
         dataset = load_dataset(
             "HuggingFaceFW/fineweb", 
-            name="sample-10B", 
+            name="sample-10BT", 
             split="train",
             streaming=True,
             cache_dir=cache_dir,
