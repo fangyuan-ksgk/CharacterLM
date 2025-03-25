@@ -19,5 +19,6 @@ python data/$dataset_name/process_pt_data.py --datasets_dir="data/$dataset_name/
                                         --init_vocab=True\
                                         --max_workers=8
 
+# For training, we'd need to fix the 'get_batch' functional to take care of multiple .bin files containing training data points
 python train.py config/train_smol_byte.py --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir"
 python eval.py --model_type="GPT" --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir" --run_idx=0
