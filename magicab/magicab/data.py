@@ -3,6 +3,7 @@ import numpy as np
 import random 
 import os 
 from tqdm import tqdm
+import glob
 
 def save_sequences_for_memmap(sequences, file_path):
     """save sequences (list of list) with meta data encoded"""        
@@ -18,10 +19,18 @@ def save_sequences_for_memmap(sequences, file_path):
         for seq in sequences:
             np.array(seq, dtype=np.int32).tofile(f)
             
-            
+ 
+def get_split_path(data_dir, split): 
+    """Multiple train files handler"""
+    file_paths = glob.glob(os.path.join(data_dir, f'*{split}*.bin'))
+    assert len(file_paths) > 0, f"No {split} files found in {data_dir}"
+    file_paths.shuffle() 
+    return file_paths[0]
+
 def get_batch_slice(data_dir, split, pad_token_id, block_size=512, batch_size=2, device='cpu'):
     
-    file_path = os.path.join(data_dir, f"{split}.bin")
+    file_path = get_split_path(data_dir, split)
+
     with open(file_path, 'rb') as f:
         n_seq = np.fromfile(f, dtype=np.int32, count=1)[0]
         offsets = np.fromfile(f, dtype=np.int64, count=n_seq)
@@ -95,10 +104,8 @@ def get_batch_slice(data_dir, split, pad_token_id, block_size=512, batch_size=2,
 def get_batch(data_dir, split, block_size, batch_size, device):
     """Load a batch of data from disk."""
     # We recreate np.memmap every batch to avoid a memory leak
-    if split == 'train':
-        data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
-    else:
-        data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
+    file_path = get_split_path(data_dir, split)
+    data = np.memmap(file_path, dtype=np.uint16, mode='r')
     
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
