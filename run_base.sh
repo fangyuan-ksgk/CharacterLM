@@ -19,4 +19,4 @@ python data/$dataset_name/process_pt_data.py --datasets_dir="data/$dataset_name/
                                         --max_workers=8
 
 python train.py config/train_smol_byte.py --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir"
-python eval.py --model_type="GPT" --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir" --run_idx=0
+python eval.py --model_type="GPT" --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir" --run_idx=1
