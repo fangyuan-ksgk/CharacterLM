@@ -134,6 +134,7 @@ def setup_training_environment():
         'gradient_accumulation_steps': local_gradient_accumulation_steps
     }
     
+
 def load_tokenizer(mode="char"): 
     if init_from == "scratch": 
         tokenizer = ETokenizer(mode=mode)
@@ -145,7 +146,6 @@ def load_tokenizer(mode="char"):
     return tokenizer 
     
 tokenizer = load_tokenizer(mode=mode)
-
 
 
 def get_lr(iter_num):
