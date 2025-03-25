@@ -102,6 +102,55 @@ def get_batch_slice(data_dir, split, pad_token_id, block_size=512, batch_size=2,
     return x, y
 
 
+def get_batch_with_header(data_dir, split, block_size, batch_size, device):
+    """Load a batch of data from disk using memmap, handling files with headers.
+    Works with .bin files created with the format in load_datafile().
+    """
+    file_path = get_split_path(data_dir, split)
+    
+    # First read the header to validate file and get token count
+    with open(file_path, "rb") as f:
+        header_bytes = f.read(256 * 4)
+        if len(header_bytes) != 256 * 4:
+            raise ValueError("File too small for header")
+            
+        header = np.frombuffer(header_bytes, dtype=np.int32)
+        
+        # Validate magic number and version
+        if header[0] != 20240520:
+            raise ValueError("Invalid magic number (not a datafile?)")
+        if header[1] != 1:
+            raise ValueError(f"Unsupported file version: {header[1]}")
+        
+        # Get token count from header
+        token_count = header[2]
+    
+    # Use memmap to access only the data section (after header)
+    data = np.memmap(file_path, dtype=np.uint16, mode='r', 
+                     offset=256 * 4,  # Skip the header
+                     shape=(token_count,))
+    
+    # Check if we have enough data for the requested block size
+    if len(data) <= block_size:
+        raise ValueError(f"Data file has {len(data)} tokens, but block_size is {block_size}")
+    
+    # Randomly select starting indices for the batch
+    ix = torch.randint(len(data) - block_size, (batch_size,))
+    
+    # Load the requested blocks
+    x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
+    y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
+    
+    # Move tensors to the appropriate device
+    if 'cuda' in device:
+        # Pin arrays x,y, which allows us to move them to GPU asynchronously
+        x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
+    else:
+        x, y = x.to(device), y.to(device)
+    
+    return x, y
+
+
 def get_batch(data_dir, split, block_size, batch_size, device):
     """Load a batch of data from disk."""
     # We recreate np.memmap every batch to avoid a memory leak

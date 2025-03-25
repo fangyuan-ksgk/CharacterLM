@@ -64,6 +64,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_workers", type=int, default=8)
     parser.add_argument("--val_size", type=int, default=1000)
     parser.add_argument("--shard_size", type=int, default=10**8)
+    parser.add_argument("--max_iter", type=int, default=None)
 
     args = parser.parse_args()
     os.makedirs(args.save_dir, exist_ok=True)
@@ -97,7 +98,9 @@ if __name__ == "__main__":
         tokens_np_uint16 = tokens_np.astype(np.uint16)
         return tokens_np_uint16
     
-
+    # temp: cap iteration
+    MAX_ITER = args.max_iter
+    
     # Tokenize dataset with multiprocessing
     nprocs = max(1, os.cpu_count() - 2)
     with mp.Pool(nprocs) as pool: 
@@ -125,6 +128,9 @@ if __name__ == "__main__":
                 progress_bar = None 
                 all_tokens_np[0:len(tokens)-remainder] = tokens[remainder:]
                 token_count = len(tokens) - remainder 
+
+            if MAX_ITER and shard_index >= MAX_ITER: 
+                break
     
         # write any remaining tokens as the last shard
         if token_count != 0:
