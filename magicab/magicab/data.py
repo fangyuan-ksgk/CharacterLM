@@ -25,8 +25,7 @@ def get_split_path(data_dir, split):
     """Multiple train files handler"""
     file_paths = glob.glob(os.path.join(data_dir, f'*{split}*.bin'))
     assert len(file_paths) > 0, f"No {split} files found in {data_dir}"
-    random.shuffle(file_paths)
-    return file_paths[0]
+    return random.choice(file_paths)
 
 
 def get_batch_slice(data_dir, split, pad_token_id, block_size=512, batch_size=2, device='cpu'):
