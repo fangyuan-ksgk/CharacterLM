@@ -82,7 +82,11 @@ else:
 
 print("After Update Tokenizer vocab size: ", magicab.tokenizer.vocab_size)
 
-# Update Training Data 
+# Save model checkpoint & tokenizer | checkpoint is updated inside save_magicab
+save_magicab(checkpoint, magicab, new_dir)
+
+
+# Encode training data (TBD: unify all data encoding functionals)
 if 'enwiki' in data_dir:
     prepare_enwiki_data(clean=True, tokenizer=magicab.tokenizer, checkpoint_dir=new_dir, data_subfolder=data_subfolder)
 elif 'composio' in data_dir: 
@@ -94,10 +98,9 @@ elif 'composio' in data_dir:
         tokenizer_path= new_dir + "/tokenizer.json",
         mode="byte",
         init_vocab=False,
-        tokenizer=magicab.tokenizer,
-        batch_size=batch_size,
-        block_size=block_size,
+        tokenizer=magicab.tokenizer
     )
-
-# Save model checkpoint & tokenizer | checkpoint is updated inside save_magicab
-save_magicab(checkpoint, magicab, new_dir)
+elif 'openweb' in data_dir: 
+    import subprocess 
+    command_str = f"python data/{dataset}/process_pt_data.py --tokenizer_path={new_dir} --init_vocab=False"
+    subprocess.run(command_str, shell=True, check=True)
