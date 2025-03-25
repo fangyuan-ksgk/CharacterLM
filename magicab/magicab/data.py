@@ -5,6 +5,7 @@ import os
 from tqdm import tqdm
 import glob
 
+
 def save_sequences_for_memmap(sequences, file_path):
     """save sequences (list of list) with meta data encoded"""        
     lengths = [len(seq) for seq in sequences]
@@ -24,8 +25,9 @@ def get_split_path(data_dir, split):
     """Multiple train files handler"""
     file_paths = glob.glob(os.path.join(data_dir, f'*{split}*.bin'))
     assert len(file_paths) > 0, f"No {split} files found in {data_dir}"
-    file_paths.shuffle() 
+    random.shuffle(file_paths)
     return file_paths[0]
+
 
 def get_batch_slice(data_dir, split, pad_token_id, block_size=512, batch_size=2, device='cpu'):
     
@@ -119,6 +121,7 @@ def get_batch(data_dir, split, block_size, batch_size, device):
     
     return x, y
 
+
 def compute_bpc(x, y, model, tokenizer): # corrected version
     per_token_nll = model(x, y, reduction='none')[1]  # shape: [batch_size, seq_len]
     per_token_char_count = torch.tensor([[len(tokenizer.vocab[id]) for id in tokens.tolist()] for tokens in y])  # shape: [batch_size, seq_len]
@@ -132,6 +135,7 @@ def compute_bpc(x, y, model, tokenizer): # corrected version
     # Calculate true BPC across all characters
     bpc = (total_nll.to("cpu").detach() / total_chars) / torch.log(torch.tensor(2.0))
     return bpc
+
 
 def evaluate_bpc(model, tokenizer, data_dir, block_size, batch_size, device, get_batch_fn, num_batches=10):
     total_bpc = 0 
