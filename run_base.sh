@@ -14,10 +14,8 @@ mkdir -p "$run_dir"
 python data/$dataset_name/process_pt_data.py --datasets_dir="data/$dataset_name/datasets"\
                                         --save_dir="data/$dataset_name/$run_name"\
                                         --tokenizer_name_or_path="$run_dir"\ 
-                                        --block_size=512\
                                         --mode="byte"\
                                         --init_vocab=True\
-                                        --batch_size=20\
                                         --max_workers=8
 
 python train.py config/train_smol_byte.py --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir"

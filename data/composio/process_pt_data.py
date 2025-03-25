@@ -15,7 +15,6 @@ def main(args):
         mode=args.mode,
         tokenizer=None,
         init_vocab=args.init_vocab,
-        block_size=args.block_size,
         batch_size=args.batch_size,
         max_workers=args.max_workers,
         val_size=args.val_size
@@ -28,7 +27,6 @@ if __name__ == '__main__':
     argparser.add_argument("--tokenizer_name_or_path", type=str, default="checkpoint/base")
     argparser.add_argument("--mode", type=str, default="char")
     argparser.add_argument("--init_vocab", type=bool, default=False)
-    argparser.add_argument("--block_size", type=int, default=512)
     argparser.add_argument("--num_proc", type=int, default=1)
     argparser.add_argument("--batch_size", type=int, default=20)
     argparser.add_argument("--max_workers", type=int, default=8)

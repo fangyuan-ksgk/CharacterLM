@@ -4,12 +4,15 @@ from datasets import load_from_disk
 from magicab.data import save_sequences_for_memmap
 import pickle 
 
-def process_fineweb_edu(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
+# Comment: block_size is never used in pt data processing functional
+# Comment: batch_size is not used in 'encode_with_chunking' functional
+
+def process_fineweb_edu(example, tokenizer, max_workers=8):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
+    ids = tokenizer.encode_with_chunking(text, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 
-def process_cosmopedia(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
+def process_cosmopedia(example, tokenizer, max_workers=8):
     prompt = example['prompt']
     text = example['text']
     conversation = [
@@ -17,26 +20,26 @@ def process_cosmopedia(example, tokenizer, block_size=512, batch_size=20, max_wo
         {"assistant": text},
     ]
     conv_text = tokenizer.prepare_pt_conversation_data(conversation)
-    ids = tokenizer.encode_with_chunking(conv_text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
+    ids = tokenizer.encode_with_chunking(conv_text, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 
-def process_python_edu(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
+def process_python_edu(example, tokenizer, max_workers=8):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
+    ids = tokenizer.encode_with_chunking(text, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 
-def process_fine_math(example, tokenizer, block_size=512, batch_size=20, max_workers=8):
+def process_fine_math(example, tokenizer, max_workers=8):
     text = example['text']
-    ids = tokenizer.encode_with_chunking(text, batch_size=batch_size, max_workers=max_workers, mode='multiprocessing')
+    ids = tokenizer.encode_with_chunking(text, max_workers=max_workers, mode='multiprocessing')
     return {"ids": ids}
 
-def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, train_size, val_size, desc_prefix, batch_size=20, max_workers=8):
+def process_dataset(dataset, processor_fn, tokenizer, num_proc, train_size, val_size, desc_prefix, max_workers=8):
     """Generic function to process any dataset with the appropriate processor function"""
     column_names = dataset.column_names
     
     train_dataset = dataset.select(range(train_size)).map(
         processor_fn, 
-        fn_kwargs={'tokenizer': tokenizer, 'block_size': block_size, 'batch_size': batch_size, 'max_workers': max_workers},
+        fn_kwargs={'tokenizer': tokenizer, 'max_workers': max_workers},
         num_proc=num_proc,
         remove_columns=column_names,
         batched=True,
@@ -45,7 +48,7 @@ def process_dataset(dataset, processor_fn, tokenizer, block_size, num_proc, trai
     
     val_dataset = dataset.select(range(train_size, train_size + val_size)).map(
         processor_fn, 
-        fn_kwargs={'tokenizer': tokenizer, 'block_size': block_size, 'batch_size': batch_size, 'max_workers': max_workers},
+        fn_kwargs={'tokenizer': tokenizer, 'max_workers': max_workers},
         num_proc=num_proc,
         remove_columns=column_names,
         batched=True,
@@ -59,7 +62,6 @@ def process_composio_pt_data(
     datasets_dir,
     save_dir, # places to store processed data (not tokenizer)
     tokenizer_path, # places to store tokenizer
-    block_size=512,
     init_vocab=False,
     tokenizer = None, 
     mode="byte",
@@ -100,12 +102,10 @@ def process_composio_pt_data(
                 dataset=dataset,
                 processor_fn=processor_fn,
                 tokenizer=tokenizer,
-                block_size=block_size,
                 num_proc=num_proc,
                 train_size=train_size,
                 val_size=val_size,
                 desc_prefix=dataset_name,
-                batch_size=batch_size,
                 max_workers=max_workers
             )
             
