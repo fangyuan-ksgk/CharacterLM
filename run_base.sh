@@ -14,10 +14,11 @@ mkdir -p "$run_dir"
 
 python data/$dataset_name/process_pt_data.py --datasets_dir="data/$dataset_name/datasets"\
                                         --save_dir="data/$dataset_name/$run_name"\
-                                        --tokenizer_path="$run_dir"\ 
+                                        --tokenizer_path="$run_dir"\
                                         --mode="byte"\
                                         --init_vocab=True\
-                                        --max_workers=8
+                                        --max_workers=8\
+                                        --max_shard=2
 
 # For training, we'd need to fix the 'get_batch' functional to take care of multiple .bin files containing training data points
 python train.py config/train_openweb_gpt.py --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir"
