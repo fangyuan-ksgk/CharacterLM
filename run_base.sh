@@ -4,7 +4,7 @@
 # python eval.py --model_type="GPT" --out_dir="$run_dir" --run_idx=0
 
 
-run_name="base_byte"
+run_name="base_byte2"
 run_dir="checkpoint/$run_name"
 # dataset_name="composio"
 dataset_name="openweb"
@@ -12,14 +12,24 @@ dataset_name="openweb"
 # Create directory if it doesn't exist
 mkdir -p "$run_dir"
 
-python data/$dataset_name/process_pt_data.py --datasets_dir="data/$dataset_name/datasets"\
-                                        --save_dir="data/$dataset_name/$run_name"\
-                                        --tokenizer_path="$run_dir"\
-                                        --mode="byte"\
-                                        --init_vocab=True\
-                                        --max_workers=8\
-                                        --max_shard=2
+# encoding pt data 
+# python data/$dataset_name/process_pt_data.py --datasets_dir="data/$dataset_name/datasets"\
+#                                         --save_dir="data/$dataset_name/$run_name"\
+#                                         --tokenizer_path="$run_dir"\
+#                                         --mode="byte"\
+#                                         --init_vocab=True\
+#                                         --max_workers=8\
+#                                         --max_shard=20
 
-# For training, we'd need to fix the 'get_batch' functional to take care of multiple .bin files containing training data points
-python train.py config/train_openweb_gpt.py --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir"
-python eval.py --model_type="GPT" --dataset="$dataset_name" --data_subfolder="$run_name" --out_dir="$run_dir" --run_idx=0
+# pt model with specific config
+python train.py config/train_openweb_gpt.py --dataset="$dataset_name"\
+                                            --data_subfolder="$run_name"\
+                                            --out_dir="$run_dir"\
+                                            --max_epochs=1
+
+# evaluate pt model
+python eval.py --model_type="GPT"\
+               --dataset="$dataset_name"\
+               --data_subfolder="$run_name"\
+               --out_dir="$run_dir"\
+               --run_idx=0
