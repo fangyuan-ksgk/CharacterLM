@@ -347,3 +347,38 @@ class GPT(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+    
+
+    def enable_gradient_checkpointing(self):
+        """Enable gradient checkpointing for memory efficiency"""
+        import torch.utils.checkpoint as checkpoint
+        
+        # For standard GPT model structure
+        if hasattr(self, 'transformer') and hasattr(self.transformer, 'h'):
+            for block in self.transformer.h:
+                # Store original forward method if not already stored
+                if not hasattr(block, '_original_forward'):
+                    block._original_forward = block.forward
+                
+                # Replace forward method with a checkpointed version
+                def create_custom_forward(original_forward):
+                    def custom_forward(*inputs):
+                        return original_forward(*inputs)
+                    return custom_forward
+                
+                block.forward = lambda *args: checkpoint.checkpoint(
+                    create_custom_forward(block._original_forward), 
+                    *args, 
+                    preserve_rng_state=True
+                )
+        
+        return self
+    
+    def disable_gradient_checkpointing(self):
+        """Disable gradient checkpointing and restore original forward methods"""
+        if hasattr(self, 'transformer') and hasattr(self.transformer, 'h'):
+            for block in self.transformer.h:
+                if hasattr(block, '_original_forward'):
+                    block.forward = block._original_forward
+        
+        return self
