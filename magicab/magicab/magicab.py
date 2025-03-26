@@ -316,7 +316,7 @@ def update_token_stat(x, y, model, tokenizer, token_bpc_dict, token_count_dict):
     return token_bpc_dict, token_count_dict
 
 
-def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, device_type, device, get_batch_fn,num_batches=10): 
+def evaluate_token_stat(model, tokenizer, data_dir, block_size, batch_size, device, get_batch_fn,num_batches=10): 
     token_count_dict = defaultdict(int)
     token_bpc_dict = defaultdict(list)
     
