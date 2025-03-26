@@ -46,7 +46,7 @@ else:
     from magicab.data import get_batch_slice # require pad_token_id
     get_batch = lambda data_dir, split, block_size, batch_size, device: get_batch_slice(data_dir, split, tokenizer.pad_token_id, block_size, batch_size, device)
     
-bpc = evaluate_bpc(model, tokenizer, data_dir, 256, batch_size, "cpu", device, get_batch, num_batches=10)
+bpc = evaluate_bpc(model, tokenizer, data_dir, 256, batch_size, device, get_batch, num_batches=10)
 print(f"BPC of loaded checkpoint: {bpc}")
 
 token_count_dict, token_bpc_dict = evaluate_token_stat(model, tokenizer, data_dir, 256, 256, device, get_batch, num_batches=10)
