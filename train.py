@@ -65,6 +65,7 @@ bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
 max_iters = 600000 # total number of training iterations
+max_epochs=2 # total number of loop throgh the entire dataset, once used, replace max_iters
 current_flops = 0.0 # non-zero for resume training
 max_flops = None # if not None, training will stop when reaching this flops
 weight_decay = 1e-1
@@ -389,6 +390,7 @@ def train():
             meta = pickle.load(f)
         meta_vocab_size = meta['vocab_size']
         print(f"found vocab_size = {meta_vocab_size} (from {meta_path})")
+        total_tokens = meta.get('total_tokens', None)
     
     # Initialize model and optimizer
     model, model_args = init_model(meta_vocab_size)
@@ -418,8 +420,14 @@ def train():
         import wandb
         wandb.init(project=wandb_project, name=wandb_run_name)
     
-    # Add progress bar
-    global max_iters
+    # Epoch matching iter adjustment
+    if total_tokens and max_epochs: 
+        tokens_per_iter = batch_size * gradient_accumulation_steps * block_size 
+        iters_per_epoch = total_tokens // tokens_per_iter
+        max_iters = max_epochs * iters_per_epoch
+        print(f"Training for {max_epochs} epochs ({max_iters} iterations)")
+
+    # FLOP matching iter adjustment 
     if max_flops is not None: 
         max_iters = adjust_max_iters_by_flops(model)
         print(f"Adjusted max_iters to {max_iters} to match available FLOPS")

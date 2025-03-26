@@ -29,10 +29,12 @@ def write_datafile(filename, toks):
     else:
         toks_np = toks
     # write to file
-    print(f"writing {len(toks):,} tokens to {filename}")
+    print(f"\n-- writing {len(toks):,} tokens to {filename} --")
     with open(filename, "wb") as f:
         f.write(header.tobytes())
         f.write(toks_np.tobytes())
+    print("-- writing complete -- ") 
+    return header[2] # return total tokens
 
 
 def download_fineweb_edu(save_dir, max_samples=None):
@@ -105,6 +107,7 @@ if __name__ == "__main__":
     
     # Tokenize dataset with multiprocessing
     nprocs = max(1, os.cpu_count() - 2)
+    total_token = 0
     with mp.Pool(nprocs) as pool: 
         shard_index = 0
         all_tokens_np = np.empty((args.shard_size,), dtype=np.uint16)
@@ -124,7 +127,7 @@ if __name__ == "__main__":
                 progress_bar.update(remainder)
                 # slice tokens to fill-in remainder positions
                 all_tokens_np[token_count:token_count+remainder] = tokens[:remainder]
-                write_datafile(filename, all_tokens_np)
+                total_token += write_datafile(filename, all_tokens_np)
     
                 shard_index += 1
                 progress_bar = None 
@@ -138,7 +141,8 @@ if __name__ == "__main__":
         if token_count != 0:
             split = "val" if shard_index == 0 else "train"
             filename = os.path.join(args.save_dir, f"fineweb_{split}_{shard_index:06d}.bin")
-            write_datafile(filename, all_tokens_np[:token_count]) 
+            print("Writing remaining token: ", token_count, " into separate file")
+            total_token += write_datafile(filename, all_tokens_np[:token_count]) 
    
     
     if args.init_vocab: 
@@ -149,7 +153,8 @@ if __name__ == "__main__":
     meta_path = os.path.join(args.save_dir, 'meta.pkl')
     meta = {
         "vocab_size": tokenizer.vocab_size, 
-        "tokenizer_path": os.path.join(args.save_dir, 'tokenizer.json')
+        "tokenizer_path": os.path.join(args.save_dir, 'tokenizer.json'),
+        "total_tokens": total_token
     }
     with open(meta_path, 'wb') as f:
         pickle.dump(meta, f)
